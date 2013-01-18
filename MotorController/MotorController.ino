@@ -1,4 +1,6 @@
 //Two Victor Variable Speed Controller
+//By: Josh Smith
+//Wildstang 2013
 
 #include <Servo.h>
 #include <LiquidCrystal.h>
@@ -14,9 +16,11 @@ int PotValue1 = 0;
 int PotValue2 = 0;
 int Rpm1 = 0;
 int Rpm2 = 0;
+int initialRunWait = 99999;
 
 //Set this to the maximum RPM that the motor can run at
 int MaxRpm = 7000;
+
 //Put up to 16 characters here of the name of the motor you are testing.
 char MotorName[16] = "CIM MOTOR";
 
@@ -49,6 +53,24 @@ void setup()
   delay(4000);
   lcd.clear();
   
+  /*
+  //We start with a "zeroed out" display to make things a bit easier.
+  //The RPM section is simply rewritten as needed while leaving the static bits.
+  lcd.setCursor(0, 0);
+  lcd.print("Victor1: 0000RPM");
+  lcd.setCursor(0, 1);
+  lcd.print("Victor2: 0000RPM");
+  */
+  
+  //This is the safety screen prompt. A 4 second wait ensures the user has read this.
+  lcd.setCursor(0, 0);
+  lcd.print("Set the RPMs to");
+  lcd.setCursor(0, 1);
+  lcd.print("safe values now!");
+  
+  //Wait 4 seconds while the safety prompt is up.
+  delay(4000);
+  
   //We start with a "zeroed out" display to make things a bit easier.
   //The RPM section is simply rewritten as needed while leaving the static bits.
   lcd.setCursor(0, 0);
@@ -58,7 +80,7 @@ void setup()
 }
 
 void loop()
-{
+{  
   //Grab the values from the pots
   PotValue1 = analogRead(VictorPot1);
   PotValue2 = analogRead(VictorPot2);
@@ -196,8 +218,17 @@ void loop()
     }
   }
   
-  //Finally, we write these values to the victors. This bit still needs to be tested!
-  analogWrite(VictorPin1, PotValue1);
-  analogWrite(VictorPin2, PotValue2);
+  //Victors will start recieving commands after the initial safety period is done
+  if(initialRunWait <= 0)
+  {
+    //Finally, we write these values to the victors. This bit still needs to be tested!
+    analogWrite(VictorPin1, PotValue1);
+    analogWrite(VictorPin2, PotValue2);
+  }
+  else
+  {
+    //Subtract 1 from the wait period
+    initialRunWait--;
+  }
 }
 
