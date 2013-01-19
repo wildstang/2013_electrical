@@ -2,6 +2,12 @@
 //By: Josh Smith
 //Wildstang 2013
 
+/*
+  TODOS:
+  -Test victor portion to see if they respond properly
+  -Test safety period and adjust time to a reasponable period
+*/
+
 #include <Servo.h>
 #include <LiquidCrystal.h>
 
@@ -68,8 +74,9 @@ void setup()
   lcd.setCursor(0, 1);
   lcd.print("safe values now!");
   
-  //Wait 4 seconds while the safety prompt is up.
+  //Wait 4 seconds while the safety prompt is up and then clear the display.
   delay(4000);
+  lcd.clear();
   
   //We start with a "zeroed out" display to make things a bit easier.
   //The RPM section is simply rewritten as needed while leaving the static bits.
