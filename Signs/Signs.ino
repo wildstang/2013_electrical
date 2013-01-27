@@ -21,15 +21,17 @@ int numLeds = 82;
 
 //The global variable that determines if the device joins as a master or slave for I2C
 boolean master = true;
-//This is the address to use if this is a slave device.
+
+//This is the address to use if this is a slave device
 int i2cAddress = 82;  //HEX 0x52
-//Defines if old data = new data
+
+//Defines if old data = new data. Leave this alone as it is set automatically
 boolean dataChanged = false;
 
 //Define the number of LEDs in use (the first number in the function) along with data and clock pins
 LPD8806 strip = LPD8806(numLeds, dataPin, clockPin);
 
-setup()
+void setup()
 {
   //start the LED strip
   strip.begin();
@@ -52,7 +54,12 @@ setup()
   }
 }
 
-loop()
+void loop()
 {
   
+}
+
+void receiveData(int byteCount)
+{
+  //Add packet processing here
 }
