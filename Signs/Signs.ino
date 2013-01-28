@@ -3,11 +3,6 @@ WildStang Signs 2013
 By: Josh Smith and Steve Garward
 */
 
-/***********************************************************************************************
-   NOTES:
-   -
-***********************************************************************************************/
-
 #include "LPD8806.h"
 #include "SPI.h"
 #include <Wire.h>
@@ -28,6 +23,16 @@ int i2cAddress = 82;  //HEX 0x52
 //Defines if old data = new data. Leave this alone as it is set automatically
 boolean dataChanged = false;
 
+//Create the variables that are sent to the slave devices from the master
+unsigned char lightFunction = 0;
+unsigned char functionVariable1 = 0;
+unsigned char functionVariable2 = 0;
+
+//Create the Variables that are sent/receieved when a request is handled (universal for both slave and master)
+unsigned char currentFunction = 0;
+unsigned char positionInFunction1 = 0;
+unsigned char positionInFunction2 = 0;
+
 //Define the number of LEDs in use (the first number in the function) along with data and clock pins
 LPD8806 strip = LPD8806(numLeds, dataPin, clockPin);
 
@@ -41,7 +46,7 @@ void setup()
   
   if(master == true)
   {
-    //Begin I2C communications as a MASTER. receiveData will be called when new data arrives
+    //Begin I2C communications as a MASTER
     //We call this last to avoid a nasty bug involving the LED initialization code
     Wire.begin();
   }
@@ -57,15 +62,36 @@ void setup()
 //function prototypes
 void rainbowWheel();
 void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait);
+void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce);
 
 void loop()
 {
-  rainbowWheel();
+  //scanner(127,127,0, 50000, true);
+  twinkle(100);
 }
 
 void receiveData(int byteCount)
 {
-  //Add packet processing here
+  //Check if there are the proper number of bytes
+  if (3 == byteCount)
+  {
+    //Strip off the last byte and read the value
+    currentFunction = (0x000000FF & Wire.read()); //What function is currently running
+    positionInFunction1 = (0x000000FF & Wire.read()); //Where it is at in the function
+    positionInFunction2 = (0x000000FF & Wire.read()); //Where it is at in the function
+    
+    //Set the flag to say that we have new data
+    dataChanged = true;
+  }
+  
+  //If there are too many bytes, they are all removed
+  else if (byteCount > 3)
+  {
+    while (Wire.available() > 0)
+    {
+      Wire.read();
+    }
+  }
 }
 
 /***************************************************************************************************
@@ -190,6 +216,39 @@ void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait)
       break;  
     }
   }
+}
+
+void twinkle(int times)
+{
+   int numLit = 6;
+   
+   for (int i = 0; i < times; i++)
+   {  
+      int pixels[52] = {0};
+      randomSeed(micros());
+   
+      for (int i = 0; i < numLit; i++)
+      {
+         pixels[random(52)] = 1;
+      }
+
+      for (int i=0; i < strip.numPixels(); i++)
+      {
+         if (pixels[i])
+         {
+            strip.setPixelColor(i, strip.Color(127, 127, 127));
+         }
+         else
+         {
+            strip.setPixelColor(i, strip.Color(0, 0, 0));
+         }
+      }  
+      strip.show();   // write all the pixels out
+      if (true == timedWaitFunction(100000))
+      {
+        break;
+      }
+   }
 }
 
 /***************************************************************************************************
