@@ -244,7 +244,7 @@ void twinkle(int times)
          }
       }  
       strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(100000))
+      if (true == timedWaitFunction(50))
       {
         break;
       }
@@ -258,13 +258,30 @@ void twinkle(int times)
 
 /*
 Wait function (timed)
-This is called when we wait to wait in between events that are occuring in our functions.
+This is called when we want to wait in between events that are occuring in our functions.
 Much better than using delay() because we can interrupt the parent function when new data is received.
-We will sit in this function for the time provided.
+We will sit in this function for the time provided. The input parameter is the amount of milliseconds
+long that the wait should be.
 */
-boolean timedWaitFunction(uint32_t waitTime)
+
+//This is the old code for waiting. I'm keeping it here until the new code can be fully tested with I2C.
+/*boolean timedWaitFunction(uint32_t waitTime)
 {
   for(uint32_t w=0; w <= waitTime; w++)
+  {
+    if(dataChanged == true)
+    {
+      return true;
+    }
+  }
+  return false;
+}*/
+
+boolean timedWaitFunction(int waitTime)
+{
+  unsigned long previousMillis = millis();
+  unsigned long currentMillis = millis();
+  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
   {
     if(dataChanged == true)
     {

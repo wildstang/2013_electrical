@@ -19,8 +19,7 @@ packets will not be handled during a delay() period. Use the timedWaitFunction.
 Todo:
 -----
 
-⁃	Approximate the timedWaitFunction() waitTime variable to correspond to the
-milliseconds used in delay()
+⁃	Test the new timedWaitFunction() with I2C to ensure it interrupts correctly
 
 ⁃	Finish prototype of I2C protocol
 
