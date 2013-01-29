@@ -7,12 +7,8 @@ By: Josh Smith and Steve Garward
 #include "SPI.h"
 #include <Wire.h>
 
-//Define Data Pins here
-int dataPin = 9;
-int clockPin = 11;
-
 //The number of LEDs on the sign
-int numLeds = 52;
+#define numLeds 52
 
 //The global variable that determines if the device joins as a master or slave for I2C
 boolean master = true;
@@ -33,8 +29,9 @@ unsigned char currentFunction = 0;
 unsigned char positionInFunction1 = 0;
 unsigned char positionInFunction2 = 0;
 
-//Define the number of LEDs in use (the first number in the function) along with data and clock pins
-LPD8806 strip = LPD8806(numLeds, dataPin, clockPin);
+//Define the number of LEDs in use (the first number in the function). This uses pin 11 for SDA (data) and pin 13
+//for SCL (clock)
+LPD8806 strip = LPD8806(numLeds);
 
 void setup()
 {
@@ -63,11 +60,18 @@ void setup()
 void rainbowWheel();
 void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait);
 void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce);
+void twinkle(int times, int wait);
+void rainbowTwinkle(int times, int wait);
+void rainbowFromCenter(uint8_t wait);
+void doubleRainbow(uint8_t wait);
+void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength);
 
 void loop()
 {
-  //scanner(127,127,0, 50000, true);
-  twinkle(100);
+  //scanner(127,127,0, 100, true);
+  //rainbowTwinkle(100, 100);
+  //twinkle(100, 100);
+  rainbowWheelStrobe(20, 20);
 }
 
 void receiveData(int byteCount)
@@ -100,7 +104,7 @@ void receiveData(int byteCount)
 ***************************************************************************************************/
 
 //Moves a set of LEDs across the strip and bounces them
-void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce)
+void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
 {
   int h, i, j;
 
@@ -184,7 +188,7 @@ void rainbowWheel()
   }
 }
 
-void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait)
+void rainbowWheelStrobe(int onWait, int offWait)
 {
   uint16_t i, j;
 
@@ -218,18 +222,18 @@ void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait)
   }
 }
 
-void twinkle(int times)
+void twinkle(int times, int wait)
 {
    int numLit = 6;
    
    for (int i = 0; i < times; i++)
    {  
-      int pixels[52] = {0};
+      int pixels[numLeds] = {0};
       randomSeed(micros());
    
       for (int i = 0; i < numLit; i++)
       {
-         pixels[random(52)] = 1;
+         pixels[random(numLeds)] = 1;
       }
 
       for (int i=0; i < strip.numPixels(); i++)
@@ -244,13 +248,197 @@ void twinkle(int times)
          }
       }  
       strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(50))
+      if (true == timedWaitFunction(wait))
       {
         break;
       }
    }
 }
 
+void rainbowTwinkle(int times, int wait)
+{
+   int numLit = 15;
+   uint16_t j = 0;
+   
+   for (int i = 0; i < times; i++)
+   {  
+      int pixels[numLeds] = {0};
+      randomSeed(micros());
+   
+      for (int i = 0; i < numLit; i++)
+      {
+         pixels[random(numLeds)] = 1;
+      }
+      
+      if (j >= 384)
+      {
+        j = 0;
+      }
+
+      for (int i=0; i < strip.numPixels(); i++)
+      {
+         if (pixels[i])
+         {
+           strip.setPixelColor(i, Wheel(((i * 384 / strip.numPixels()) + j) % 384));
+         }
+         else
+         {
+           strip.setPixelColor(i, strip.Color(0, 0, 0));
+         }
+      }  
+      strip.show();   // write all the pixels out
+      j = j+10;
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void blankStrip()
+{
+  for (int i = 0; i < numLeds; i++)
+  {
+    strip.setPixelColor(i, 0);
+  }
+  strip.show();
+}
+
+void rainbowFromCenter(uint8_t wait)
+{
+   int i, j;
+   uint32_t color;
+   
+   int center = numLeds / 2;
+   
+   blankStrip();
+
+   for (i = (5 * 384) - 1; i >= 0 ; i--)
+   {
+      // 3 cycles of all 384 colors in the wheel
+      for (j=0; j < center; j++)
+      {
+         color = Wheel( ((j * 384 / center / 2) + i) % 384);   // Wheel( (i + j) % 384);
+         strip.setPixelColor(center - 1 - j, color);
+         strip.setPixelColor(center + j, color);
+         strip.setPixelColor(numLeds - center - 1 - j, color);
+         strip.setPixelColor(numLeds - center + j, color);
+      }  
+   
+      strip.show();   // write all the pixels out
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void doubleRainbow(uint8_t wait)
+{
+   blankStrip();
+   int i, j;
+   uint32_t color;
+   
+   for (i = (384 * 5) - 1; i >= 0 ; i--)
+   {
+      // 3 cycles of all 384 colors in the wheel
+      for (j=0; j < (numLeds / 2); j++)
+      {
+         color = Wheel( ((j * 384 / (numLeds / 2)) + i) % 384);   // Wheel( (i + j) % 384);
+         strip.setPixelColor(j, color);
+         strip.setPixelColor(numLeds - 1 - j, color);
+      }  
+   
+      strip.show();   // write all the pixels out
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength)
+{
+   // Clear the last pattern
+   blankStrip();
+   
+   uint8_t dimRed = red / trailLength;
+   uint8_t dimGreen = green / trailLength;
+   uint8_t dimBlue = blue / trailLength;
+   int currentPixel;
+
+   uint32_t pixels[] = {0};
+   uint32_t trailPattern[trailLength + 1];
+  
+   // Set up the trail pattern
+
+   trailPattern[0] = 0;
+   for (int i = 1; i <= trailLength; i++)
+   {
+      int index = trailLength + 1 - i;
+      trailPattern[index] = strip.Color(max(red - (dimRed * (i - 1)), 0), max(green - (dimGreen * (i - 1)), 0), max(blue - (dimBlue * (i - 1)), 0));
+   }
+
+   // reset colour array
+   for (int i = 0; i < numLeds; i++)
+   {
+      pixels[i] = 0;
+   }
+
+   int lastStart = 0;
+
+   // Fill in colours
+   for (int i = 0; i < numLeds; i++)
+   {
+      lastStart = i - trailLength;
+
+      for (int j = 0; j <= trailLength; j++)
+      {
+         currentPixel = lastStart + j;
+         
+         if (currentPixel < 0)
+         {
+            // Work out position at end
+            currentPixel = numLeds + currentPixel;  // subtracts from length to get index
+         }
+         strip.setPixelColor(currentPixel, trailPattern[j]);
+      }
+
+      strip.show();
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
+{
+   // Clear the last pattern
+   blankStrip();
+   
+   for (int i = 0; i < numLeds; i++)
+   {
+      // Set the pixel colour
+      strip.setPixelColor(i, strip.Color(red, green, blue));
+      
+      // If we are the start of the strip, loop around to the end of the strip
+      if (i == 0)
+      {
+         strip.setPixelColor(numLeds - 1, 0);
+      }
+      else
+      {
+         strip.setPixelColor(i - 1, 0);
+      }
+      
+      strip.show();
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
 /***************************************************************************************************
                                         Utility functions
                                  Assisting actual light functions
