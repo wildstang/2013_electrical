@@ -70,8 +70,8 @@ void loop()
 {
   //scanner(127,127,0, 100, true);
   //rainbowTwinkle(100, 100);
-  //twinkle(100, 100);
-  rainbowWheelStrobe(20, 20);
+  twinkle(100, 100);
+  //rainbowWheelStrobe(20, 20);
 }
 
 void receiveData(int byteCount)
@@ -163,6 +163,73 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
     }
   }
 }
+/***************************************************************
+//START OF TESTING FOR I2C COMMUNICATION BETWEEN SIGNS
+***************************************************************/
+
+//Moves a set of LEDs across the strip and bounces them
+/*
+void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
+{
+  int h, i, j;
+
+  int pos = 0;
+  int dir = 1;
+
+  // Erase the strip initially to be sure that we do not leave
+  // LEDs on from previous functions
+  for(h=0; h < strip.numPixels(); h++)
+  {
+    strip.setPixelColor(h, 0);
+  }
+  
+  
+
+  for(i=0; i<((strip.numPixels()-1) * 8); i++)
+  {
+    // Draw 5 pixels centered on pos.  setPixelColor() will clip
+    // any pixels off the ends of the strip, no worries there.
+    // we'll make the colors dimmer at the edges for a nice pulse
+    // look
+    strip.setPixelColor(pos - 2, strip.Color(r/4, g/4, b/4));
+    strip.setPixelColor(pos - 1, strip.Color(r/2, g/2, b/2));
+    strip.setPixelColor(pos, strip.Color(r, g, b));
+    strip.setPixelColor(pos + 1, strip.Color(r/2, g/2, b/2));
+    strip.setPixelColor(pos + 2, strip.Color(r/4, g/4, b/4));
+
+    strip.show();
+    //Wait function with interrupt
+    if (true == timedWaitFunction(wait))
+    {
+      break;
+    }
+
+    // If we wanted to be sneaky we could erase just the tail end
+    // pixel, but it's much easier just to erase the whole thing
+    // and draw a new one next time.
+    for(j=-2; j<= 2; j++) 
+    strip.setPixelColor(pos+j, strip.Color(0,0,0));
+    // Bounce off ends of strip
+    pos += dir;
+    if(pos < 0)
+    {
+      pos = 1;
+      dir = -dir;
+    }
+    else if(pos >= strip.numPixels())
+    {
+      if(bounce == true)
+      {
+        pos = strip.numPixels() - 2;
+        dir = -dir;
+      }
+      else
+      {
+        pos = 0;
+      } 
+    }
+  }
+}*/
 
 //Rainbow cycle
 void rainbowWheel()
@@ -519,4 +586,28 @@ uint32_t Wheel(uint16_t WheelPos)
       break;
   }
   return(strip.Color(r,g,b));
+}
+
+//Remaps the led numbers to leds that form a logical "line"
+int pixelMap(int ledNum)
+{
+  if (ledNum <= 20)
+  {
+    return ledNum;
+  }
+  else if (ledNum == 21)
+  {
+    ledNum = 33;
+    return ledNum;
+  }
+  else if (ledNum >= 21 && ledNum <= 32)
+  {
+    ledNum--;
+    return ledNum;
+  }
+  else
+  {
+    ledNum++;
+    return ledNum;
+  }
 }

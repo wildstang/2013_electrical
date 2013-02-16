@@ -11,3 +11,8 @@ Basic Packet Design:
 ### Request Packet:
 
 (current function) || (position in function 1) || (position in function 2)
+
+
+
+For a list of the available packets and their corresponding variables, see
+packet.xls.
