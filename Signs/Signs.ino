@@ -93,6 +93,7 @@ void doubleRainbow(uint8_t wait)
       }  
    
       strip.show();   // write all the pixels out
+// TODO: Change to timedWait()
       delay(wait);
    }
 }
@@ -149,6 +150,7 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
       }
 
       strip.show();
+// TODO: Change to timedWait()
       delay(wait);
    }
 
@@ -179,6 +181,7 @@ void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
       }
       
       strip.show();
+// TODO: Change to timedWait()
       delay(wait);
    }
 }
@@ -210,6 +213,7 @@ void twinkle(int times)
          }
       }  
       strip.show();   // write all the pixels out
+// TODO: Change to timedWait()
       delay(50);
    }
    
