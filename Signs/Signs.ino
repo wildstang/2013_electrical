@@ -70,6 +70,7 @@ void rainbowFromCenter(uint8_t wait)
       }  
    
       strip.show();   // write all the pixels out
+// TODO: Change to timedWait()
       delay(wait);
    }
 }
