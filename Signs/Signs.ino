@@ -9,20 +9,22 @@ By: Josh Smith and Steve Garward
 
 //The number of LEDs on the sign
 #define numLeds 52
-
-//The global variable that determines if the device joins as a master or slave for I2C
-boolean master = true;
+#define halfNumLeds numLeds
 
 //This is the address to use if this is a slave device
+//Each sign must have their own unique address
 int i2cAddress = 82;  //HEX 0x52
 
 //Defines if old data = new data. Leave this alone as it is set automatically
 boolean dataChanged = false;
 
-//Create the variables that are sent to the slave devices from the master
-unsigned char lightFunction = 0;
-unsigned char functionVariable1 = 0;
-unsigned char functionVariable2 = 0;
+//Create the variables that are used for raw data packets
+//These should not be altered as they are handled internally by the recieveData function
+unsigned char dataByte1 = 0;
+unsigned char dataByte2 = 0;
+unsigned char dataByte3 = 0;
+unsigned char dataByte4 = 0;
+unsigned char dataByte5 = 0;
 
 //Create the Variables that are sent/receieved when a request is handled (universal for both slave and master)
 unsigned char currentFunction = 0;
@@ -41,30 +43,22 @@ void setup()
   //update the strip to ensure that all the LEDs are all off at the beginning
   strip.show();
   
-  if(master == true)
-  {
-    //Begin I2C communications as a MASTER
-    //We call this last to avoid a nasty bug involving the LED initialization code
-    Wire.begin();
-  }
-  else
-  {
-    //Begin I2C communications as a SLAVE. receiveData will be called when new data arrives
-    //We call this last to avoid a nasty bug involving the LED initialization code
-    Wire.begin(i2cAddress);
-    Wire.onReceive(receiveData);
-  }
+  //Begin I2C communications as a SLAVE. receiveData will be called when new data arrives
+  //We call this last to avoid a nasty bug involving the LED initialization code
+  Wire.begin(i2cAddress);
+  Wire.onReceive(receiveData);
 }
 
 //function prototypes
 void rainbowWheel();
 void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait);
 void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce);
-void twinkle(int times, int wait);
+void twinkle(int times, int wait);c
 void rainbowTwinkle(int times, int wait);
 void rainbowFromCenter(uint8_t wait);
 void doubleRainbow(uint8_t wait);
 void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength);
+void blankStrip();
 
 void loop()
 {
@@ -76,20 +70,36 @@ void loop()
 
 void receiveData(int byteCount)
 {
-  //Check if there are the proper number of bytes
-  if (3 == byteCount)
+  //Check the byte count to ensure that we are recieving a 5 byte packet
+  if (5 == byteCount)
   {
     //Strip off the last byte and read the value
-    currentFunction = (0x000000FF & Wire.read()); //What function is currently running
-    positionInFunction1 = (0x000000FF & Wire.read()); //Where it is at in the function
-    positionInFunction2 = (0x000000FF & Wire.read()); //Where it is at in the function
+    dataByte1 = (0x000000FF & Wire.read()); //Command Byte
+    dataByte2 = (0x000000FF & Wire.read()); //Payload Data
+    dataByte3 = (0x000000FF & Wire.read()); //Payload Data
+    dataByte4 = (0x000000FF & Wire.read()); //Flipped Version of byte 2
+    dataByte5 = (0x000000FF & Wire.read()); //Flipped version of byte 3
     
-    //Set the flag to say that we have new data
-    dataChanged = true;
-  }
+    //Check if the payload bytes and the flipped counterparts are indeed opposite using XOR
+    //If so, then set the bytes we actually use in loop()
+    if ((0xFF == (dataByte2 ^ dataByte4)) &&
+        (0xFF == (dataByte3 ^ dataByte5)))
+    {
+      //Check to see if the new data is the same as the old data after verifying that it is correct
+      if((commandByte != dataByte1) || (payloadByte1 != dataByte2) || (payloadByte2 != dataByte3))
+      {
+       //Finally set the data to the variables we actually use in loop() 
+       currentFunction = dataByte1;
+       positionInFunction1 = dataByte2;
+       positionInFunction2 = dataByte3;
+       
+       //Set the flag to say that we have new data
+       dataChanged = true;
+      }
+    }  
   
   //If there are too many bytes, they are all removed
-  else if (byteCount > 3)
+  else if (byteCount > 5)
   {
     while (Wire.available() > 0)
     {
@@ -438,7 +448,6 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
    uint32_t trailPattern[trailLength + 1];
   
    // Set up the trail pattern
-
    trailPattern[0] = 0;
    for (int i = 1; i <= trailLength; i++)
    {
@@ -506,6 +515,17 @@ void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
       }
    }
 }
+
+//Blanks the strip completely
+void blankStrip()
+{
+   for (int i = 0; i < numLeds; i++)
+   {
+      strip.setPixelColor(i, 0);
+   }
+   strip.show();
+}
+
 /***************************************************************************************************
                                         Utility functions
                                  Assisting actual light functions
