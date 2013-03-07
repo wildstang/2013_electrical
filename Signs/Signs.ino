@@ -571,7 +571,7 @@ Wait function (infinite)
 This is called when we wait to wait in between events that are occuring in our functions.
 Much better than using delay() because we can interrupt the parent function when new data is received.
 We sit in this function until dataChanged becomes true.
-*/ //SITS IHERE FOREVER (need to check it out)
+*/
 boolean infiniteWaitFunction()
 {
   while(dataChanged == false)
