@@ -8,8 +8,8 @@ By: Josh Smith and Steve Garward
 #include <Wire.h>
 
 //The number of LEDs on the sign
-#define numLeds 52
-#define halfNumLeds numLeds
+#define NUM_PIXELS_TOTAL 52
+#define HALF_LENGTH NUM_PIXELS_TOTAL / 2
 
 //This is the address to use if this is a slave device
 //Each sign must have their own unique address
@@ -31,13 +31,14 @@ unsigned char currentFunction = 0;
 unsigned char positionInFunction1 = 0;
 unsigned char positionInFunction2 = 0;
 
-//Define the number of LEDs in use (the first number in the function). This uses pin 11 for SDA (data) and pin 13
-//for SCL (clock)
-LPD8806 strip = LPD8806(numLeds);
+// This will use the following pins:
+// Data (SDA):  11
+// Clock (SCL): 13
+LPD8806 strip = LPD8806(NUM_PIXELS_TOTAL);
 
 void setup()
 {
-  //start the LED strip
+  // Initialise the LED strip
   strip.begin();
 
   //update the strip to ensure that all the LEDs are all off at the beginning
@@ -299,18 +300,171 @@ void rainbowWheelStrobe(int onWait, int offWait)
   }
 }
 
+/*
+ * Sets all pixels off to blank the entire strip.
+ */
+void blankStrip()
+{
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      strip.setPixelColor(i, 0);
+   }
+   strip.show();
+}
+
+void rainbowFromCenter(uint8_t wait)
+{
+   int i, j;
+   uint32_t color;
+   
+   int center = HALF_LENGTH / 2;
+   
+   blankStrip();
+
+   for (i = (5 * 384) - 1; i >= 0 ; i--)
+   {
+      // 3 cycles of all 384 colors in the wheel
+      for (j=0; j < center; j++)
+      {
+         color = Wheel( ((j * 384 / center / 2) + i) % 384);   // Wheel( (i + j) % 384);
+         strip.setPixelColor(center - 1 - j, color);
+         strip.setPixelColor(center + j, color);
+         strip.setPixelColor(NUM_PIXELS_TOTAL - center - 1 - j, color);
+         strip.setPixelColor(NUM_PIXELS_TOTAL - center + j, color);
+      }  
+   
+      strip.show();   // write all the pixels out
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void doubleRainbow(uint8_t wait)
+{
+   blankStrip();
+   int i, j;
+   uint32_t color;
+   
+   for (i = (384 * 5) - 1; i >= 0 ; i--)
+   {
+      // 3 cycles of all 384 colors in the wheel
+      for (j=0; j < HALF_LENGTH; j++)
+      {
+         color = Wheel( ((j * 384 / HALF_LENGTH) + i) % 384);   // Wheel( (i + j) % 384);
+         strip.setPixelColor(j, color);
+         strip.setPixelColor(NUM_PIXELS_TOTAL - 1 - j, color);
+      }  
+   
+      strip.show();   // write all the pixels out
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+
+/*
+ * Chase the colour down the strip.  This leaves a diminishing trail of pixels behind it, the
+ * length of which is `
+ */
+void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength)
+{
+   // Clear the last pattern
+   blankStrip();
+   
+   uint8_t dimRed = red / trailLength;
+   uint8_t dimGreen = green / trailLength;
+   uint8_t dimBlue = blue / trailLength;
+   int currentPixel;
+
+   uint32_t pixels[] = {0};
+   uint32_t trailPattern[trailLength + 1];
+  
+   // Set up the trail pattern
+
+   trailPattern[0] = 0;
+   for (int i = 1; i <= trailLength; i++)
+   {
+      int index = trailLength + 1 - i;
+      trailPattern[index] = strip.Color(max(red - (dimRed * (i - 1)), 0), max(green - (dimGreen * (i - 1)), 0), max(blue - (dimBlue * (i - 1)), 0));
+   }
+
+   // reset colour array
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      pixels[i] = 0;
+   }
+
+   int lastStart = 0;
+
+   // Fill in colours
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      lastStart = i - trailLength;
+
+      for (int j = 0; j <= trailLength; j++)
+      {
+         currentPixel = lastStart + j;
+         
+         if (currentPixel < 0)
+         {
+            // Work out position at end
+            currentPixel = NUM_PIXELS_TOTAL + currentPixel;  // subtracts from length to get index
+         }
+         strip.setPixelColor(currentPixel, trailPattern[j]);
+      }
+
+      strip.show();
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
+{
+   // Clear the last pattern
+   blankStrip();
+   
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      // Set the pixel colour
+      strip.setPixelColor(i, strip.Color(red, green, blue));
+      
+      // If we are the start of the strip, loop around to the end of the strip
+      if (i == 0)
+      {
+         strip.setPixelColor(NUM_PIXELS_TOTAL - 1, 0);
+      }
+      else
+      {
+         strip.setPixelColor(i - 1, 0);
+      }
+      
+      strip.show();
+      if (true == timedWaitFunction(wait))
+      {
+        break;
+      }
+   }
+}
+
+
+
 void twinkle(int times, int wait)
 {
    int numLit = 6;
    
    for (int i = 0; i < times; i++)
    {  
-      int pixels[numLeds] = {0};
+      int pixels[NUM_PIXELS_TOTAL] = {0};
       randomSeed(micros());
    
       for (int i = 0; i < numLit; i++)
       {
-         pixels[random(numLeds)] = 1;
+         pixels[random(NUM_PIXELS_TOTAL)] = 1;
       }
 
       for (int i=0; i < strip.numPixels(); i++)
@@ -370,160 +524,6 @@ void rainbowTwinkle(int times, int wait)
         break;
       }
    }
-}
-
-void blankStrip()
-{
-  for (int i = 0; i < numLeds; i++)
-  {
-    strip.setPixelColor(i, 0);
-  }
-  strip.show();
-}
-
-void rainbowFromCenter(uint8_t wait)
-{
-   int i, j;
-   uint32_t color;
-   
-   int center = numLeds / 2;
-   
-   blankStrip();
-
-   for (i = (5 * 384) - 1; i >= 0 ; i--)
-   {
-      // 3 cycles of all 384 colors in the wheel
-      for (j=0; j < center; j++)
-      {
-         color = Wheel( ((j * 384 / center / 2) + i) % 384);   // Wheel( (i + j) % 384);
-         strip.setPixelColor(center - 1 - j, color);
-         strip.setPixelColor(center + j, color);
-         strip.setPixelColor(numLeds - center - 1 - j, color);
-         strip.setPixelColor(numLeds - center + j, color);
-      }  
-   
-      strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(wait))
-      {
-        break;
-      }
-   }
-}
-
-void doubleRainbow(uint8_t wait)
-{
-   blankStrip();
-   int i, j;
-   uint32_t color;
-   
-   for (i = (384 * 5) - 1; i >= 0 ; i--)
-   {
-      // 3 cycles of all 384 colors in the wheel
-      for (j=0; j < (numLeds / 2); j++)
-      {
-         color = Wheel( ((j * 384 / (numLeds / 2)) + i) % 384);   // Wheel( (i + j) % 384);
-         strip.setPixelColor(j, color);
-         strip.setPixelColor(numLeds - 1 - j, color);
-      }  
-   
-      strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(wait))
-      {
-        break;
-      }
-   }
-}
-
-void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength)
-{
-   // Clear the last pattern
-   blankStrip();
-   
-   uint8_t dimRed = red / trailLength;
-   uint8_t dimGreen = green / trailLength;
-   uint8_t dimBlue = blue / trailLength;
-   int currentPixel;
-
-   uint32_t pixels[] = {0};
-   uint32_t trailPattern[trailLength + 1];
-  
-   // Set up the trail pattern
-   trailPattern[0] = 0;
-   for (int i = 1; i <= trailLength; i++)
-   {
-      int index = trailLength + 1 - i;
-      trailPattern[index] = strip.Color(max(red - (dimRed * (i - 1)), 0), max(green - (dimGreen * (i - 1)), 0), max(blue - (dimBlue * (i - 1)), 0));
-   }
-
-   // reset colour array
-   for (int i = 0; i < numLeds; i++)
-   {
-      pixels[i] = 0;
-   }
-
-   int lastStart = 0;
-
-   // Fill in colours
-   for (int i = 0; i < numLeds; i++)
-   {
-      lastStart = i - trailLength;
-
-      for (int j = 0; j <= trailLength; j++)
-      {
-         currentPixel = lastStart + j;
-         
-         if (currentPixel < 0)
-         {
-            // Work out position at end
-            currentPixel = numLeds + currentPixel;  // subtracts from length to get index
-         }
-         strip.setPixelColor(currentPixel, trailPattern[j]);
-      }
-
-      strip.show();
-      if (true == timedWaitFunction(wait))
-      {
-        break;
-      }
-   }
-}
-
-void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
-{
-   // Clear the last pattern
-   blankStrip();
-   
-   for (int i = 0; i < numLeds; i++)
-   {
-      // Set the pixel colour
-      strip.setPixelColor(i, strip.Color(red, green, blue));
-      
-      // If we are the start of the strip, loop around to the end of the strip
-      if (i == 0)
-      {
-         strip.setPixelColor(numLeds - 1, 0);
-      }
-      else
-      {
-         strip.setPixelColor(i - 1, 0);
-      }
-      
-      strip.show();
-      if (true == timedWaitFunction(wait))
-      {
-        break;
-      }
-   }
-}
-
-//Blanks the strip completely
-void blankStrip()
-{
-   for (int i = 0; i < numLeds; i++)
-   {
-      strip.setPixelColor(i, 0);
-   }
-   strip.show();
 }
 
 /***************************************************************************************************
