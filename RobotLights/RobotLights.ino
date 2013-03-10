@@ -210,3 +210,64 @@ void rainbowWheel()
     }
   }
 }
+
+/***************************************************************************************************
+                                        Utility functions
+                                 Assisting actual light functions
+***************************************************************************************************/
+
+//Input a value 0 to 384 to get a color value.
+//The colours are a transition r - g - b - back to r
+uint32_t Wheel(uint16_t WheelPos)
+{
+  byte r, g, b;
+  switch(WheelPos / 128)
+  {
+    case 0:
+      r = 127 - WheelPos % 128; // red down
+      g = WheelPos % 128;       // green up
+      b = 0;                    // blue off
+      break;
+    case 1:
+      g = 127 - WheelPos % 128; // green down
+      b = WheelPos % 128;       // blue up
+      r = 0;                    // red off
+      break;
+    case 2:
+      b = 127 - WheelPos % 128; // blue down
+      r = WheelPos % 128;       // red up
+      g = 0;                    // green off
+      break;
+  }
+  return(strip.Color(r,g,b));
+}
+
+boolean timedWaitFunction(int waitTime)
+{
+  unsigned long previousMillis = millis();
+  unsigned long currentMillis = millis();
+  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
+  {
+    if(dataChanged == true)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+/*
+Wait function (infinite)
+This is called when we wait to wait in between events that are occuring in our functions.
+Much better than using delay() because we can interrupt the parent function when new data is received.
+We sit in this function until dataChanged becomes true.
+*/
+boolean infiniteWaitFunction()
+{
+  while(dataChanged == false)
+  {
+    //Do nothing. We just sit in here until new data is recieved.
+  }
+  //If we break out of the while loop, then dataChanged must be true so we can return true
+  return true;
+}
