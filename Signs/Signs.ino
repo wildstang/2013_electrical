@@ -54,7 +54,7 @@ void setup()
 void rainbowWheel();
 void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait);
 void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce);
-void twinkle(int times, int wait);c
+void twinkle(int times, int wait);
 void rainbowTwinkle(int times, int wait);
 void rainbowFromCenter(uint8_t wait);
 void doubleRainbow(uint8_t wait);
@@ -87,7 +87,7 @@ void receiveData(int byteCount)
         (0xFF == (dataByte3 ^ dataByte5)))
     {
       //Check to see if the new data is the same as the old data after verifying that it is correct
-      if((commandByte != dataByte1) || (payloadByte1 != dataByte2) || (payloadByte2 != dataByte3))
+      if((currentFunction != dataByte1) || (positionInFunction1 != dataByte2) || (positionInFunction2 != dataByte3))
       {
        //Finally set the data to the variables we actually use in loop() 
        currentFunction = dataByte1;
@@ -107,6 +107,7 @@ void receiveData(int byteCount)
       Wire.read();
     }
   }
+}
 }
 
 /***************************************************************************************************
