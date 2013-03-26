@@ -266,6 +266,8 @@ String getPatternName(byte pattern)
 {
    switch (pattern)
    {
+      case PATTERN_BLANK:
+         return BLANK_TEXT;
       case PATTERN_RAINBOW:
          return RAINBOW_TEXT;
       case PATTERN_RED_FILL:
@@ -317,6 +319,10 @@ void downInterrupt()
   if (interrupt_time - last_interrupt_time > 200) 
   {
      pattern--;
+     if (pattern < 0)
+     {
+        pattern = PATTERN_MAX;
+     }
      patternSelectionChanged = true;
   }
   last_interrupt_time = interrupt_time;
@@ -454,6 +460,26 @@ void setDisplayColor(int red, int green, int blue)
    analogWrite(LCD_GREEN, 255 - green);
    analogWrite(LCD_BLUE, 255 - blue);
 }
+
+//boolean accelOverThreshold(short angle) 
+//{
+//   float xytilt = 0 ;
+//
+//   int x = accel.readXData();
+//   int y = accel.readYData();
+//   int z = accel.readZData();
+//
+//   xytilt = atan ((float)x/(float)y) * 180 / 3.14159;
+//
+//   if (xytilt > angle || xytilt < (0 - angle))
+//   {
+//      return true;
+//   }
+//   else
+//   {
+//      return false;
+//   }
+//}
 
 void Wheel(uint16_t WheelPos)
 {
