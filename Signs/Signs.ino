@@ -28,9 +28,9 @@ int packetData[PACKET_DATA_LENGTH] = {-1};
 short pattern = 0;
 boolean patternChanged = false;
 
-#define SIGN_1 0x0a
-#define SIGN_2 0x0b
-#define SIGN_3 0x0c
+#define SIGN_1 11
+#define SIGN_2 12
+#define SIGN_3 13
 
 
 void setup()
@@ -122,6 +122,9 @@ void loop()
             twinkle();
          }
          break;
+      case PATTERN_EQ_METER:
+         showLevel(averageSoundLevel());
+         break;
       default:
          blankStrip();
          break;
@@ -152,7 +155,8 @@ void receiveData(int numBytes)
    }
 
    // We allow for 100 patterns. If the number is < 100, it is a pattern
-   if (temp < 100)
+   //THIS HAS BEEN SET TO 9 BUT NEEDS TO BE CHANGED
+   if (temp < 9)
    {
       pattern = temp;
       patternChanged = true;
@@ -316,7 +320,7 @@ void rainbowFromCenter(uint8_t wait)
 
    int center = HALF_LENGTH / 2;
 
-   blankStrip();
+   //blankStrip();
 
    // Note: Due to the layout of the strip, if we count up with i, it goes towards the center,
    // but if we count down, we go from the center towards the end
@@ -811,3 +815,61 @@ uint32_t Wheel(uint16_t WheelPos)
    return(strip.Color(r,g,b));
 }
 
+void showLevel(int p_level)
+{
+   int height;
+   int pixels[4];
+
+   for (int i=0; i < strip.numPixels(); i++)
+   {
+      strip.setPixelColor(i, 0);  // turn all pixels off
+   }
+   
+   for (height = 0; height < p_level*2; height++)
+   {
+      heightToPixels(height, pixels);
+      
+      for (int i=0; i < 4 && pixels[i] > -1; i++)
+      {
+         strip.setPixelColor(pixels[i], getLevelColor(height));
+      }
+   }
+   strip.show();
+}
+
+uint32_t getLevelColor(int level)
+{
+   if (level < 10)
+   {
+      // Green
+      return strip.Color(0,127,0);
+   }
+   else if (level >= 10 && level < 16)
+   {
+      // Orange
+      return strip.Color(127,127,0);
+   }
+   else if (level >= 16 && level < 19)
+   {
+      // Red
+      return strip.Color(127,0,0);
+   }
+}
+
+int averageSoundLevel()
+{
+   int average = 0;
+   
+   average = (packetData[2] + packetData[3]) / 2;
+   
+   if (average < 0)
+   {
+      average = 0;
+   }
+   else if (average > 10)
+   {
+      average = 10;
+   }
+   
+   return average;
+}

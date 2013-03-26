@@ -6,18 +6,17 @@ By: Josh Smith and Steve Garward
 #include "SPI.h"
 #include "Wire.h"
 #include "LiquidTWI.h"
+#include "PinChangeInt.h"
 //#include "ADXL362.h"
 #include "patterns.h"
-#include "PinChangeInt.h"
 
 // Define the sign addresses
-#define SIGN_1 0x0a
-#define SIGN_2 0x0b
-#define SIGN_3 0x0c
+#define SIGN_1 11
+#define SIGN_2 12
+#define SIGN_3 13
 
 // This means send to all signs
 #define SIGN_ALL 255
-
 
 // Pin definitions
 #define RED_BUTTON 1
@@ -52,6 +51,18 @@ LiquidTWI lcd(0);
 //ADXL362 accel;
 byte r, g, b;
 
+/****************************** Sound Board Code ******************************/
+int PIXELS_PER_SEGMENT = 2; //How many LEDs we want to use for each segment of the "VU meter"
+float SENSITIVITY = 2.3; //This sets the sensitivity of the mic (increase for quiet environment (3.0 should be upper bound))
+
+int spectrumValue[7]; // to hold a2d values
+int baseline[7];
+boolean initialise = false;
+int totalVolume = 0;
+int relativeLevel = 0;
+int averageVolume = 0;
+/******************************************************************************/
+
 //#define WS_DEBUG
 
 void setup()
@@ -66,7 +77,7 @@ void setup()
    digitalWrite(BLUE_BUTTON, HIGH);
    digitalWrite(PARTY_BUTTON, HIGH);
    digitalWrite(SELECT_BUTTON, HIGH);
-
+  
    // Configure LCD backlight pins
    pinMode(LCD_RED, OUTPUT);
    pinMode(LCD_GREEN, OUTPUT);
@@ -83,12 +94,45 @@ void setup()
    pinMode(MIC_STROBE, OUTPUT);
    pinMode(MIC_RESET, OUTPUT);
    pinMode(MIC_IN, INPUT);
+   
+   analogReference(DEFAULT);
+
+   digitalWrite(MIC_RESET, LOW);
+   digitalWrite(MIC_STROBE, HIGH);
+   
+   //Normally we can't use delay but during setup it doesn't matter since I2C can't be called
+   delay(5000);
+   // Initialise and get a baseline
+   digitalWrite(MIC_RESET, HIGH);
+   digitalWrite(MIC_RESET, LOW);
+
+   for (int i = 0; i < 7; i++)
+   {
+      baseline[i] = 0;
+   }
+
+   for (int j = 0; j < 10; j++)
+   {
+      for (int i = 0; i < 7; i++)
+      {
+         digitalWrite(MIC_STROBE, LOW);
+         delayMicroseconds(30);  // to allow the output to settle
+         baseline[i] += analogRead(MIC_IN);
+         digitalWrite(MIC_STROBE, HIGH);
+      }
+   }
+
+   for (int i = 0; i < 7; i++)
+   {
+      // Average the baseline readings
+      baseline[i] = baseline[i] / 10;
+   }
 
    // set up the LCD's number of rows and columns: 
    lcd.begin(16, 2);
    // Print a message to the LCD.
    lcd.print(" ~ WildStang ~ ");
-   
+      
 //   accel.begin();
 //   accel.beginMeasure();
    
@@ -98,7 +142,7 @@ void setup()
 
 //If we have defined WS_DEBUG, enable serial for debugging
 #ifdef WS_DEBUG
-   Serial.begin(9600);
+  Serial.begin(9600);
 #endif
 }
 
@@ -119,47 +163,51 @@ void loop()
       switch (pattern)
       {
       case PATTERN_BLANK:
-         sendPattern(SIGN_ALL, PATTERN_BLANK);
+         sendPattern(SIGN_ALL, PATTERN_BLANK, NULL, 0, 0);
          break;
       case PATTERN_RAINBOW:
-         sendPattern(SIGN_ALL, PATTERN_RAINBOW);
+         sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
          break;
       case PATTERN_RED_FILL:
-         sendPattern(SIGN_ALL, PATTERN_RED_FILL);
-         break;
+         sendPattern(SIGN_ALL, PATTERN_RED_FILL, NULL, 0, 0);
+        break;
       case PATTERN_BLUE_FILL:
-         sendPattern(SIGN_ALL, PATTERN_BLUE_FILL);
-         break;
+       sendPattern(SIGN_ALL, PATTERN_BLUE_FILL, NULL, 0, 0);
+      break;
       case PATTERN_RED_FILL_TILT:
-         sendPattern(SIGN_1, PATTERN_RED_FILL);
-//         while (accelOverThreshold(30))
-//         {
-//            // Do nothing
-//         }
-         timedWait(1000);
-         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER);
-         timedWait(1000);
-         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER);
+       sendPattern(SIGN_1, PATTERN_RED_FILL, NULL, 0, 0);
+//      while (accelAngle(X_AXIS, 30))
+//     {
+//        // Do nothing
+//      }
+      sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+      timedWait(1000);
+      sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
          break;
       case PATTERN_BLUE_FILL_TILT:
-         sendPattern(SIGN_1, PATTERN_BLUE_FILL);
-//         while (accelOverThreshold(30))
-//         {
-//            // Do nothing
-//         }
-         timedWait(1000);
-         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER);
-         timedWait(1000);
-         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER);
+      sendPattern(SIGN_1, PATTERN_BLUE_FILL, NULL, 0, 0);
+//      while (accelAngle(X_AXIS, 30))
+//      {
+//        // Do nothing
+//      }
+      sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+      timedWait(1000);
+      sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
          break;
       case PATTERN_TWINKLE:
-         sendPattern(SIGN_ALL, PATTERN_TWINKLE);
+      sendPattern(SIGN_ALL, PATTERN_TWINKLE, NULL, 0, 0);
+         break;
+      case PATTERN_EQ_METER:
+         readSoundData();
+         sendPattern(SIGN_1, PATTERN_EQ_METER, spectrumValue, 1, 2);
+         sendPattern(SIGN_2, PATTERN_EQ_METER, spectrumValue, 3, 2);
+         sendPattern(SIGN_3, PATTERN_EQ_METER, spectrumValue, 5, 2);
          break;
       default:
-         sendPattern(SIGN_ALL, PATTERN_RAINBOW);
+      sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
          break;
       }
-   }
+  }
 }
 
 //This is called when the select button is pressed.
@@ -182,7 +230,7 @@ boolean newPatternSelected()
    // For now, read the button. Later make this a flag set by interrupt
    boolean result = patternChanged;
    patternChanged = false;
-
+   
    return result;
 }
 
@@ -218,64 +266,60 @@ String getPatternName(byte pattern)
 {
    switch (pattern)
    {
-   case PATTERN_BLANK:
-      return BLANK_TEXT;
-   case PATTERN_RAINBOW:
-      return RAINBOW_TEXT;
-   case PATTERN_RED_FILL:
-      return RED_FILL_TEXT;
-   case PATTERN_BLUE_FILL:
-      return BLUE_FILL_TEXT;
-   case PATTERN_RED_FILL_SHIMMER:
-      return RED_FILL_SHIMMER_TEXT;
-   case PATTERN_BLUE_FILL_SHIMMER:
-      return BLUE_FILL_SHIMMER_TEXT;
-   case PATTERN_RED_FILL_TILT:
-      return RED_FILL_TILT_TEXT;
-   case PATTERN_BLUE_FILL_TILT:
-      return BLUE_FILL_TILT_TEXT;
-   case PATTERN_TWINKLE:
-      return TWINKLE_TEXT;
-   default:
-      return "None            ";
-      break;
+      case PATTERN_RAINBOW:
+         return RAINBOW_TEXT;
+      case PATTERN_RED_FILL:
+         return RED_FILL_TEXT;
+      case PATTERN_BLUE_FILL:
+         return BLUE_FILL_TEXT;
+      case PATTERN_RED_FILL_SHIMMER:
+         return RED_FILL_SHIMMER_TEXT;
+      case PATTERN_BLUE_FILL_SHIMMER:
+         return BLUE_FILL_SHIMMER_TEXT;
+      case PATTERN_RED_FILL_TILT:
+         return RED_FILL_TILT_TEXT;
+      case PATTERN_BLUE_FILL_TILT:
+         return BLUE_FILL_TILT_TEXT;
+      case PATTERN_TWINKLE:
+         return TWINKLE_TEXT;
+      case PATTERN_EQ_METER:
+         return EQ_METER_TEXT;
+      default:
+         return "None            ";
+         break;
    }
 }
 
 //This is called when the "up" button is pressed
 void upInterrupt()
 {
-   static unsigned long last_interrupt_time = 0;
-   unsigned long interrupt_time = millis();
-   // If interrupts come faster than 200ms, assume it's a bounce and ignore
-   if (interrupt_time - last_interrupt_time > 200) 
-   {
-      pattern++;
-      if (pattern > PATTERN_MAX)
-      {
-         pattern = 0;
-      }
-      patternSelectionChanged = true;
-   }
-   last_interrupt_time = interrupt_time;
+  static unsigned long last_interrupt_time = 0;
+  unsigned long interrupt_time = millis();
+  // If interrupts come faster than 200ms, assume it's a bounce and ignore
+  if (interrupt_time - last_interrupt_time > 200) 
+  {
+     pattern++;
+     if (pattern > PATTERN_MAX)
+     {
+        pattern = 0;
+     }
+     patternSelectionChanged = true;
+  }
+  last_interrupt_time = interrupt_time;
 }
 
 //This is called when the "down" button is pressed
 void downInterrupt()
 {
-   static unsigned long last_interrupt_time = 0;
-   unsigned long interrupt_time = millis();
-   // If interrupts come faster than 200ms, assume it's a bounce and ignore
-   if (interrupt_time - last_interrupt_time > 200) 
-   {
-      pattern--;
-      if (pattern < 0)
-      {
-         pattern = PATTERN_MAX;
-      }
-      patternSelectionChanged = true;
-   }
-   last_interrupt_time = interrupt_time;
+  static unsigned long last_interrupt_time = 0;
+  unsigned long interrupt_time = millis();
+  // If interrupts come faster than 200ms, assume it's a bounce and ignore
+  if (interrupt_time - last_interrupt_time > 200) 
+  {
+     pattern--;
+     patternSelectionChanged = true;
+  }
+  last_interrupt_time = interrupt_time;
 }
 
 //A simple function to return if a new pattern has been "selected" for the menu
@@ -329,32 +373,49 @@ void clearPatternSelectionChanged()
 
 //Calls the sendPatternMessage function to actually send the pattern command
 //over the I2C lines
-#ifdef WS_DEBUG
-void sendPattern(int sign, int pattern)
-{
-}
-#else
-void sendPattern(int sign, int pattern)
-{
-   if (sign == SIGN_ALL)
-   {
-      sendPatternMessage(SIGN_1, pattern);
-      sendPatternMessage(SIGN_2, pattern);
-      sendPatternMessage(SIGN_3, pattern);
-   }
-   else
-   {
-      sendPatternMessage(sign, pattern);
-   }
-}
-#endif
+//void sendPattern(int sign, int pattern)
+//{
+//  if (sign == SIGN_ALL)
+//  {
+//    sendPatternMessage(SIGN_1, pattern);
+//    sendPatternMessage(SIGN_2, pattern);
+//    sendPatternMessage(SIGN_3, pattern);
+//  }
+//  else
+//  {
+//    sendPatternMessage(sign, pattern);
+//  }
+//}
+//Calls the sendPatternMessage function to actually send the pattern command
+//over the I2C lines
 
-//This function takes the address and pattern command data in and sends it out over I2C
-void sendPatternMessage(byte address, byte pattern)
+void sendPattern(int sign, int pattern, int data[], int start,  int length)
 {
-   Wire.beginTransmission(address);
-   Wire.write(pattern);
-   Wire.endTransmission();
+  if (sign == SIGN_ALL)
+  {
+    sendPatternMessage(SIGN_1, pattern, data, start, length);
+    sendPatternMessage(SIGN_2, pattern, data, start, length);
+    sendPatternMessage(SIGN_3, pattern, data, start, length);
+  }
+  else
+  {
+    sendPatternMessage(sign, pattern, data, start, length);
+  }
+}
+//This function takes the address and pattern command data in and sends it out over I2C
+void sendPatternMessage(int address, int pattern, int data[], int start, int length)
+{
+   
+  Wire.beginTransmission(address);
+  Wire.write(pattern);
+  if (data != NULL)
+  {
+     for (int i = start; i < length; i++)
+     {
+        Wire.write(data[i]);
+     }
+  }
+  Wire.endTransmission();
 }
 
 //Checks if the chosen pattern has been changed and returns it
@@ -372,18 +433,18 @@ void setPattern(int newPattern)
 
 //This function mimmics the default delay function.
 //Delay should not be used as this function allows I2C bytes to be recieved while we are waiting in a loop
-boolean timedWait(int waitTime)
+boolean timedWait(unsigned int waitTime)
 {
-   unsigned long previousMillis = millis();
-   unsigned long currentMillis = millis();
-   for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
-   {
-      if (patternChanged == true)
-      {
-         return true;
-      }
-   }
-   return false;
+  unsigned long previousMillis = millis();
+  unsigned long currentMillis = millis();
+  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
+  {
+    if (patternChanged == true)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 //Takes in a RGB level and sets the LCD backlight to match these values
@@ -394,47 +455,62 @@ void setDisplayColor(int red, int green, int blue)
    analogWrite(LCD_BLUE, 255 - blue);
 }
 
-
-//boolean accelOverThreshold(short angle) 
-//{
-//   float xytilt = 0 ;
-//
-//   int x = accel.readXData();
-//   int y = accel.readYData();
-//   int z = accel.readZData();
-//
-//   xytilt = atan ((float)x/(float)y) * 180 / 3.14159;
-//
-//   if (xytilt > angle || xytilt < (0 - angle))
-//   {
-//      return true;
-//   }
-//   else
-//   {
-//      return false;
-//   }
-//}
-
 void Wheel(uint16_t WheelPos)
 {
-   switch(WheelPos / 256)
-   {
-   case 0:
+  switch(WheelPos / 256)
+  {
+    case 0:
       r = 255 - WheelPos % 256;   //Red down
       g = WheelPos % 256;      // Green up
       b = 0;                  //blue off
       break; 
-   case 1:
+    case 1:
       g = 255 - WheelPos % 256;  //green down
       b = WheelPos % 256;      //blue up
       r = 0;                  //red off
       break; 
-   case 2:
+    case 2:
       b = 255 - WheelPos % 256;  //blue down 
       r = WheelPos % 256;      //red up
       g = 0;                  //green off
       break; 
+  }
+}
+
+void readSoundData()
+{
+   digitalWrite(MIC_RESET, HIGH); 
+   digitalWrite(MIC_RESET, LOW);
+   totalVolume = 0;
+
+   for (int i=0; i < 7; i++)
+   {
+     digitalWrite(MIC_STROBE, LOW);
+     delayMicroseconds(30);  // to allow the output to settle
+     spectrumValue[i] = analogRead(MIC_IN) - baseline[i];
+     if (spectrumValue[i] < 0)
+     {
+       spectrumValue[i] = 0;
+     }
+
+     totalVolume += spectrumValue[i];
+
+     digitalWrite(MIC_STROBE, HIGH);
    }
 
+   // Average the volume
+   averageVolume = totalVolume / 7;
+
+   relativeLevel = averageVolume * SENSITIVITY / 100;
+
+   if (relativeLevel > 10)
+   {
+     relativeLevel = 10;
+   }
+   else if (relativeLevel < 0)
+   {
+     relativeLevel = 0;
+   }
 }
+
 
