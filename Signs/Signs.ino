@@ -5,114 +5,194 @@ By: Josh Smith and Steve Garward
 
 #include "LPD8806.h"
 #include "SPI.h"
-#include <Wire.h>
+#include "Wire.h"
+#include "patterns.h"
+
 
 //The number of LEDs on the sign
 #define NUM_PIXELS_TOTAL 52
 #define HALF_LENGTH NUM_PIXELS_TOTAL / 2
 
-//This is the address to use if this is a slave device
-//Each sign must have their own unique address
-int i2cAddress = 82;  //HEX 0x52
-
-//Defines if old data = new data. Leave this alone as it is set automatically
-boolean dataChanged = false;
-
-//Create the variables that are used for raw data packets
-//These should not be altered as they are handled internally by the recieveData function
-unsigned char dataByte1 = 0;
-unsigned char dataByte2 = 0;
-unsigned char dataByte3 = 0;
-unsigned char dataByte4 = 0;
-unsigned char dataByte5 = 0;
-
-//Create the Variables that are sent/receieved when a request is handled (universal for both slave and master)
-unsigned char currentFunction = 0;
-unsigned char positionInFunction1 = 0;
-unsigned char positionInFunction2 = 0;
+//#define WS_DEBUG
 
 // This will use the following pins:
 // Data (SDA):  11
 // Clock (SCL): 13
 LPD8806 strip = LPD8806(NUM_PIXELS_TOTAL);
 
+#define PACKET_DATA_LENGTH 8
+
+int packetData[PACKET_DATA_LENGTH] = {-1};
+
+// This is the pattern that should be displayed
+short pattern = 0;
+boolean patternChanged = false;
+
+#define SIGN_1 0x0a
+#define SIGN_2 0x0b
+#define SIGN_3 0x0c
+
+
 void setup()
 {
-  // Initialise the LED strip
-  strip.begin();
 
-  //update the strip to ensure that all the LEDs are all off at the beginning
-  strip.show();
-  
-  //Begin I2C communications as a SLAVE. receiveData will be called when new data arrives
-  //We call this last to avoid a nasty bug involving the LED initialization code
-  Wire.begin(i2cAddress);
-  Wire.onReceive(receiveData);
+   pinMode(4, INPUT);
+   pinMode(5, INPUT);
+   pinMode(6, INPUT);
+   digitalWrite(4, HIGH);
+   digitalWrite(5, HIGH);
+   digitalWrite(6, HIGH);
+
+   // Determine the slave address
+   // The pins are pulled high through the internal pullup, so we have
+   // tied the hardware address pin low.  For the pin that is low, set the 
+   // I2C address for this device
+   if (digitalRead(4) == LOW)
+   {
+      Wire.begin(SIGN_1);
+   }
+   if (digitalRead(5) == LOW)
+   {
+      Wire.begin(SIGN_2);
+   }
+   if (digitalRead(6) == LOW)
+   {
+      Wire.begin(SIGN_3);
+   }
+   Wire.onReceive(receiveData);
+
+   // Start up the LED strip
+   strip.begin();
+
+   // Update the strip, to start they are all 'off'
+   strip.show();
+
+
+#ifdef WS_DEBUG
+   Serial.begin(9600);
+#endif
 }
 
-//function prototypes
-void rainbowWheel();
-void rainbowWheelStrobe(uint32_t onWait, uint32_t offWait);
-void scanner(uint8_t r, uint8_t g, uint8_t b, uint32_t wait, boolean bounce);
-void twinkle(int times, int wait);c
-void rainbowTwinkle(int times, int wait);
-void rainbowFromCenter(uint8_t wait);
-void doubleRainbow(uint8_t wait);
-void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uint8_t trailLength);
-void blankStrip();
 
 void loop()
 {
-  //scanner(127,127,0, 100, true);
-  //rainbowTwinkle(100, 100);
-  twinkle(100, 100);
-  //rainbowWheelStrobe(20, 20);
-}
 
-void receiveData(int byteCount)
-{
-  //Check the byte count to ensure that we are recieving a 5 byte packet
-  if (5 == byteCount)
-  {
-    //Strip off the last byte and read the value
-    dataByte1 = (0x000000FF & Wire.read()); //Command Byte
-    dataByte2 = (0x000000FF & Wire.read()); //Payload Data
-    dataByte3 = (0x000000FF & Wire.read()); //Payload Data
-    dataByte4 = (0x000000FF & Wire.read()); //Flipped Version of byte 2
-    dataByte5 = (0x000000FF & Wire.read()); //Flipped version of byte 3
-    
-    //Check if the payload bytes and the flipped counterparts are indeed opposite using XOR
-    //If so, then set the bytes we actually use in loop()
-    if ((0xFF == (dataByte2 ^ dataByte4)) &&
-        (0xFF == (dataByte3 ^ dataByte5)))
-    {
-      //Check to see if the new data is the same as the old data after verifying that it is correct
-      if((commandByte != dataByte1) || (payloadByte1 != dataByte2) || (payloadByte2 != dataByte3))
+   if(hasPatternChanged ())
+   {
+      clearPatternChanged();
+      switch (pattern)
       {
-       //Finally set the data to the variables we actually use in loop() 
-       currentFunction = dataByte1;
-       positionInFunction1 = dataByte2;
-       positionInFunction2 = dataByte3;
-       
-       //Set the flag to say that we have new data
-       dataChanged = true;
+      case PATTERN_BLANK:
+         blankStrip();
+         break;
+      case PATTERN_RAINBOW:
+         while (!hasPatternChanged())
+         {
+            rainbowFromCenter(10);
+         }
+         break;
+      case PATTERN_RED_FILL:
+         colorFlowDown(127, 0, 0);
+         // Set colour to stay on red
+         solidColor(127, 0, 0);
+         break;
+      case PATTERN_BLUE_FILL:
+         colorFlowDown(0, 0, 127);
+         // Set colour to stay on blue
+         solidColor(0, 0, 127);
+         break;
+      case PATTERN_RED_FILL_SHIMMER:
+         colorFlowDownShimmer(127, 0, 0);
+         // Set colour to stay on blue
+         solidColor(127, 0, 0);
+         break;
+      case PATTERN_BLUE_FILL_SHIMMER:
+         colorFlowDownShimmer(0, 0, 127);
+         // Set colour to stay on blue
+         solidColor(0, 0, 127);
+         break;
+// Not needed
+//      case PATTERN_RED_FILL_TILT:
+//         break;
+//      case PATTERN_BLUE_FILL_TILT:
+//         break;
+      case PATTERN_TWINKLE:
+         while (!hasPatternChanged())
+         {
+            twinkle();
+         }
+         break;
+      default:
+         blankStrip();
+         break;
       }
-    }  
-  
-  //If there are too many bytes, they are all removed
-  else if (byteCount > 5)
-  {
-    while (Wire.available() > 0)
-    {
-      Wire.read();
-    }
-  }
+   }
 }
 
-/***************************************************************************************************
-                                   Actual light logic functions
-                          (setting colors and writing to the LED strips)
-***************************************************************************************************/
+
+
+void clearPatternChanged()
+{
+   patternChanged = false;
+}
+
+boolean hasPatternChanged()
+{
+   return patternChanged;
+}
+
+void receiveData(int numBytes)
+{
+   byte temp;
+
+   // Read the first byte
+   if (Wire.available() > 0)
+   {
+      temp = Wire.read();
+   }
+
+   // We allow for 100 patterns. If the number is < 100, it is a pattern
+   if (temp < 100)
+   {
+      pattern = temp;
+      patternChanged = true;
+   }
+   else
+   {
+      // If this is not a pattern, read the data into the packet data array for the
+      // function to process
+      int i = 1;
+
+      // We already have the first byte
+      packetData[0] = temp;
+
+      // Now read the rest of the bytes
+      while (Wire.available() > 0 && i < PACKET_DATA_LENGTH)
+      {
+         packetData[i] = Wire.read();
+      }
+
+      // If we have not filled the buffer, mark the end of data with -1
+      if (i < PACKET_DATA_LENGTH)
+      {
+         packetData[i] = -1;
+      }
+   }
+}
+
+boolean timedWait(int waitTime)
+{
+   unsigned long previousMillis = millis();
+   unsigned long currentMillis = millis();
+   for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
+   {
+      if (patternChanged == true)
+      {
+         return true;
+      }
+   }
+   return false;
+}
 
 //Moves a set of LEDs across the strip and bounces them
 void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
@@ -143,7 +223,7 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
 
     strip.show();
     //Wait function with interrupt
-    if (true == timedWaitFunction(wait))
+    if (true == timedWait(wait))
     {
       break;
     }
@@ -174,97 +254,7 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
     }
   }
 }
-/***************************************************************
-//START OF TESTING FOR I2C COMMUNICATION BETWEEN SIGNS
-***************************************************************/
 
-//Moves a set of LEDs across the strip and bounces them
-/*
-void scanner(uint8_t r, uint8_t g, uint8_t b, int wait, boolean bounce)
-{
-  int h, i, j;
-
-  int pos = 0;
-  int dir = 1;
-
-  // Erase the strip initially to be sure that we do not leave
-  // LEDs on from previous functions
-  for(h=0; h < strip.numPixels(); h++)
-  {
-    strip.setPixelColor(h, 0);
-  }
-  
-  
-
-  for(i=0; i<((strip.numPixels()-1) * 8); i++)
-  {
-    // Draw 5 pixels centered on pos.  setPixelColor() will clip
-    // any pixels off the ends of the strip, no worries there.
-    // we'll make the colors dimmer at the edges for a nice pulse
-    // look
-    strip.setPixelColor(pos - 2, strip.Color(r/4, g/4, b/4));
-    strip.setPixelColor(pos - 1, strip.Color(r/2, g/2, b/2));
-    strip.setPixelColor(pos, strip.Color(r, g, b));
-    strip.setPixelColor(pos + 1, strip.Color(r/2, g/2, b/2));
-    strip.setPixelColor(pos + 2, strip.Color(r/4, g/4, b/4));
-
-    strip.show();
-    //Wait function with interrupt
-    if (true == timedWaitFunction(wait))
-    {
-      break;
-    }
-
-    // If we wanted to be sneaky we could erase just the tail end
-    // pixel, but it's much easier just to erase the whole thing
-    // and draw a new one next time.
-    for(j=-2; j<= 2; j++) 
-    strip.setPixelColor(pos+j, strip.Color(0,0,0));
-    // Bounce off ends of strip
-    pos += dir;
-    if(pos < 0)
-    {
-      pos = 1;
-      dir = -dir;
-    }
-    else if(pos >= strip.numPixels())
-    {
-      if(bounce == true)
-      {
-        pos = strip.numPixels() - 2;
-        dir = -dir;
-      }
-      else
-      {
-        pos = 0;
-      } 
-    }
-  }
-}*/
-
-//Rainbow cycle
-void rainbowWheel()
-{
-  uint16_t i, j;
-
-  for (j=0; j < 384 * 5; j++)
-  {     // 5 cycles of all 384 colors in the wheel
-    for (i=0; i < strip.numPixels(); i++)
-    {
-      // tricky math! we use each pixel as a fraction of the full 384-color
-      // wheel (thats the i / strip.numPixels() part)
-      // Then add in j which makes the colors go around per pixel
-      // the % 384 is to make the wheel cycle around
-      strip.setPixelColor(i, Wheel(((i * 384 / strip.numPixels()) + j) % 384));
-    }
-    strip.show();   // write all the pixels out
-   
-    if (true == timedWaitFunction(50))
-    {
-      break;
-    }
-  }
-}
 
 void rainbowWheelStrobe(int onWait, int offWait)
 {
@@ -282,7 +272,7 @@ void rainbowWheelStrobe(int onWait, int offWait)
     }
     strip.show();
 
-    if (true == timedWaitFunction(onWait))
+    if (true == timedWait(onWait))
     {
       break;
     }
@@ -293,7 +283,7 @@ void rainbowWheelStrobe(int onWait, int offWait)
     }
     strip.show();
 
-    if (true == timedWaitFunction(offWait))
+    if (true == timedWait(offWait))
     {
       break;  
     }
@@ -312,32 +302,72 @@ void blankStrip()
    strip.show();
 }
 
+
+/**
+ * Creates a rainbow that moves from the center out to both ends.  This does a single rainbow cycle,
+ * and needs to be called multiple times to perform multiple rainbow cycles.
+ *
+ * This function will be interrupted by a pattern change.
+ */
 void rainbowFromCenter(uint8_t wait)
 {
    int i, j;
    uint32_t color;
-   
+
    int center = HALF_LENGTH / 2;
-   
+
    blankStrip();
 
-   for (i = (5 * 384) - 1; i >= 0 ; i--)
+   // Note: Due to the layout of the strip, if we count up with i, it goes towards the center,
+   // but if we count down, we go from the center towards the end
+   i = 384 - 1;
+
+   // Iterate through all colours
+   while(i >= 0 && !hasPatternChanged())
    {
-      // 3 cycles of all 384 colors in the wheel
+      // Loop through the pixels, from the center out
       for (j=0; j < center; j++)
       {
-         color = Wheel( ((j * 384 / center / 2) + i) % 384);   // Wheel( (i + j) % 384);
+         // Get the colour for this position
+         color = Wheel( ((j * 384 / center / 2) + i) % 384);
+
+         // Set the pixels on each side of the ceneter, on both strips
+         // TODO: Change to use the height, not strip position
          strip.setPixelColor(center - 1 - j, color);
          strip.setPixelColor(center + j, color);
          strip.setPixelColor(NUM_PIXELS_TOTAL - center - 1 - j, color);
          strip.setPixelColor(NUM_PIXELS_TOTAL - center + j, color);
       }  
-   
+
       strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(wait))
+      // TODO: Change to timedWait()
+      timedWait(wait);
+
+      if (hasPatternChanged())
       {
-        break;
+         return;
       }
+      i--;
+   }
+}
+
+
+void solidColor(uint8_t red, uint8_t green, uint8_t blue)
+{
+   // Set all pixels to the same colour
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      strip.setPixelColor(i, strip.Color(red, green, blue));
+   }
+
+   // Show the pixels
+   strip.show();
+
+   // Now use a timed wait that can be interrupted by a pattern change to keep the colour set
+   while (!hasPatternChanged())
+   {
+      // Do nothing - use a timed wait to free up the processor
+      timedWait(10);
    }
 }
 
@@ -346,7 +376,7 @@ void doubleRainbow(uint8_t wait)
    blankStrip();
    int i, j;
    uint32_t color;
-   
+
    for (i = (384 * 5) - 1; i >= 0 ; i--)
    {
       // 3 cycles of all 384 colors in the wheel
@@ -356,13 +386,14 @@ void doubleRainbow(uint8_t wait)
          strip.setPixelColor(j, color);
          strip.setPixelColor(NUM_PIXELS_TOTAL - 1 - j, color);
       }  
-   
+
       strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(wait))
+      if (true == timedWait(wait))
       {
         break;
       }
    }
+}
 
 /*
  * Chase the colour down the strip.  This leaves a diminishing trail of pixels behind it, the
@@ -372,7 +403,7 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
 {
    // Clear the last pattern
    blankStrip();
-   
+
    uint8_t dimRed = red / trailLength;
    uint8_t dimGreen = green / trailLength;
    uint8_t dimBlue = blue / trailLength;
@@ -380,7 +411,7 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
 
    uint32_t pixels[] = {0};
    uint32_t trailPattern[trailLength + 1];
-  
+
    // Set up the trail pattern
 
    trailPattern[0] = 0;
@@ -406,7 +437,7 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
       for (int j = 0; j <= trailLength; j++)
       {
          currentPixel = lastStart + j;
-         
+
          if (currentPixel < 0)
          {
             // Work out position at end
@@ -416,7 +447,7 @@ void colorChaseTrail(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait, uin
       }
 
       strip.show();
-      if (true == timedWaitFunction(wait))
+      if (true == timedWait(wait))
       {
         break;
       }
@@ -427,12 +458,12 @@ void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
 {
    // Clear the last pattern
    blankStrip();
-   
+
    for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
    {
       // Set the pixel colour
       strip.setPixelColor(i, strip.Color(red, green, blue));
-      
+
       // If we are the start of the strip, loop around to the end of the strip
       if (i == 0)
       {
@@ -442,31 +473,35 @@ void colorChase(uint8_t red, uint8_t green, uint8_t blue, uint8_t wait)
       {
          strip.setPixelColor(i - 1, 0);
       }
-      
+
       strip.show();
-      if (true == timedWaitFunction(wait))
+      if (true == timedWait(wait))
       {
         break;
       }
    }
 }
 
-
-
-void twinkle(int times, int wait)
+void twinkle()
 {
-   int numLit = 6;
-   
-   for (int i = 0; i < times; i++)
-   {  
+   int numLit = 6;  // The number of LEDs lit at any time
+
+   // Repeat until there is a requested pattern change
+   while (!hasPatternChanged())
+   {
+      // Initialise an array of flags to 0
       int pixels[NUM_PIXELS_TOTAL] = {0};
       randomSeed(micros());
-   
+
+      // Pick random pixels (a total of numLit) and set their flag to 1.
+      // These are the pixels we light up
       for (int i = 0; i < numLit; i++)
       {
          pixels[random(NUM_PIXELS_TOTAL)] = 1;
       }
 
+      // Now light up the pixels.  If the flag is a 1, we set it to white, otherwise
+      // we turn it off.
       for (int i=0; i < strip.numPixels(); i++)
       {
          if (pixels[i])
@@ -477,13 +512,47 @@ void twinkle(int times, int wait)
          {
             strip.setPixelColor(i, strip.Color(0, 0, 0));
          }
-      }  
+      }
+
+      // Show the pattern
       strip.show();   // write all the pixels out
-      if (true == timedWaitFunction(wait))
+      if (true == timedWait(20))
       {
         break;
       }
    }
+}
+
+void twinkle(int times, uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, int wait)
+{
+   int numLit = 6;
+
+   for (int i = 0; i < times; i++)
+   {  
+      int pixels[NUM_PIXELS_TOTAL] = { 0 };
+      randomSeed(micros());
+
+      for (int i = 0; i < numLit; i++)
+      {
+         pixels[random(NUM_PIXELS_TOTAL)] = 1;
+      }
+
+      for (int i=0; i < strip.numPixels(); i++)
+      {
+         if (pixels[i])
+         {
+            strip.setPixelColor(i, strip.Color(fgred, fggreen, fgblue));
+         }
+         else
+         {
+            strip.setPixelColor(i, strip.Color(bgred, bggreen, bgblue));
+         }
+      }  
+      strip.show();   // write all the pixels out
+      // TODO: Change to timedWait()
+      timedWait(wait);
+   }
+
 }
 
 void rainbowTwinkle(int times, int wait)
@@ -493,12 +562,12 @@ void rainbowTwinkle(int times, int wait)
    
    for (int i = 0; i < times; i++)
    {  
-      int pixels[numLeds] = {0};
+      int pixels[NUM_PIXELS_TOTAL] = {0};
       randomSeed(micros());
    
       for (int i = 0; i < numLit; i++)
       {
-         pixels[random(numLeds)] = 1;
+         pixels[random(NUM_PIXELS_TOTAL)] = 1;
       }
       
       if (j >= 384)
@@ -519,115 +588,226 @@ void rainbowTwinkle(int times, int wait)
       }  
       strip.show();   // write all the pixels out
       j = j+10;
-      if (true == timedWaitFunction(wait))
+      if (true == timedWait(wait))
       {
         break;
       }
    }
 }
 
-/***************************************************************************************************
-                                        Utility functions
-                                 Assisting actual light functions
-***************************************************************************************************/
 
-/*
-Wait function (timed)
-This is called when we want to wait in between events that are occuring in our functions.
-Much better than using delay() because we can interrupt the parent function when new data is received.
-We will sit in this function for the time provided. The input parameter is the amount of milliseconds
-long that the wait should be.
-*/
-
-//This is the old code for waiting. I'm keeping it here until the new code can be fully tested with I2C.
-/*boolean timedWaitFunction(uint32_t waitTime)
+void colorFlowDown(uint8_t red, uint8_t green, uint8_t blue)
 {
-  for(uint32_t w=0; w <= waitTime; w++)
-  {
-    if(dataChanged == true)
-    {
-      return true;
-    }
-  }
-  return false;
-}*/
+   blankStrip();
 
-boolean timedWaitFunction(int waitTime)
-{
-  unsigned long previousMillis = millis();
-  unsigned long currentMillis = millis();
-  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
-  {
-    if(dataChanged == true)
-    {
-      return true;
-    }
-  }
-  return false;
+   int height;
+   int pixels[4];
+
+   for (int count = 19; count >= 0; count--)
+   {
+#ifdef WS_DEBUG
+      Serial.print("count = ");
+      Serial.println(count);
+#endif
+      for (height = count; height <= 19; height++)
+      {
+#ifdef WS_DEBUG
+         Serial.print("height = ");
+         Serial.println(height);
+#endif
+         heightToPixels(height, pixels);
+         // Loop through pixels returned
+         for (int i = 0; i < 4 && pixels[i] > -1; i++)
+         {
+#ifdef WS_DEBUG
+            Serial.print("pixels[i] = ");
+            Serial.println(pixels[i]);
+#endif
+            strip.setPixelColor(pixels[i], strip.Color(red, green, blue));
+         }
+      }
+      strip.show();
+      // TODO: Change to timedWait()
+      timedWait(100);
+   }   
 }
 
-/*
-Wait function (infinite)
-This is called when we wait to wait in between events that are occuring in our functions.
-Much better than using delay() because we can interrupt the parent function when new data is received.
-We sit in this function until dataChanged becomes true.
-*/
-boolean infiniteWaitFunction()
+
+void colorFlowDownShimmer(uint8_t red, uint8_t green, uint8_t blue)
 {
-  while(dataChanged == false)
-  {
-    //Do nothing. We just sit in here until new data is recieved.
-  }
-  //If we break out of the while loop, then dataChanged must be true so we can return true
-  return true;
+   blankStrip();
+
+   int height;
+   int pixels[4];
+   int shimmerRow1[4];
+   int shimmerRow2[4];
+
+   for (int count = 19; count >= 0; count--)
+   {
+      for (height = count; height <= 19; height++)
+      {
+         heightToPixels(height, pixels);
+         // Loop through pixels returned
+         for (int i = 0; i < 4 && pixels[i] > -1; i++)
+         {
+            strip.setPixelColor(pixels[i], strip.Color(red, green, blue));
+         }
+         strip.show();
+         if (height == count || height == count + 1)
+         {
+            heightToPixels(count, shimmerRow1);
+            heightToPixels(count + 1, shimmerRow2);
+
+            for (int j = 1; j < 5; j++)
+            {
+               // Shimmer
+               for (int i = 0; i < 4; i++)
+               {
+                  if (shimmerRow1[i] > -1)
+                  {
+                     if (random(50) > 25)
+                     {
+                        strip.setPixelColor(shimmerRow1[i], strip.Color(127, 127, 127));
+                     }
+                     else
+                     {
+                        strip.setPixelColor(shimmerRow1[i], strip.Color(0, 0, 0));
+                     }
+                  }
+                  if (shimmerRow2[i] > -1)
+                  {
+                     if (random(50) > 25)
+                     {
+                        strip.setPixelColor(shimmerRow2[i], strip.Color(127, 127, 127));
+                     }
+                     else
+                     {
+                        strip.setPixelColor(shimmerRow2[i], strip.Color(0, 0, 0));
+                     }
+                  }
+               }
+               strip.show();
+               timedWait(5);
+            }
+         }
+      }
+      //// TODO: Change to timedWait()
+      timedWait(50);
+
+   }
+
 }
 
-//Input a value 0 to 384 to get a color value.
-//The colours are a transition r - g - b - back to r
+
+void heightToPixels(int height, int *pixels)
+{
+   pixels[0] = pixels[1] = pixels[2] = pixels[3] = -1;
+
+#ifdef WS_DEBUG
+   Serial.println("In heightToPixels()");
+   Serial.print("height = ");
+   Serial.println(height);
+#endif
+
+   if (height >= 0 && height < 20)
+   {
+      pixels[0] = height;
+      pixels[1] = (NUM_PIXELS_TOTAL - 1 - height);
+#ifdef WS_DEBUG
+      Serial.print("pixels[0] = ");
+      Serial.println(pixels[0]);
+      Serial.print("pixels[1] = ");
+      Serial.println(pixels[1]);
+#endif
+   }
+
+   // Special cases
+   if (height == 13)
+   {
+#ifdef WS_DEBUG
+      Serial.println("height = 13");
+      Serial.println("pixels[2] = 26");
+#endif
+      pixels[2] = 26;
+   }
+   else if (height == 19)
+   {
+#ifdef WS_DEBUG
+      Serial.println("height = 19");
+      Serial.println("pixels[2] = 20");
+#endif
+      pixels[2] = 20;
+   }
+   else if (height > 13 && height < 19)
+   {
+      // Top row: max height + first position we care about - height = position
+      pixels[2] = 18 + 21 - height;
+
+      // Bottom row: first pixel we care about - max height + height = position
+      pixels[3] = 31 - 18 + height;
+#ifdef WS_DEBUG
+      Serial.println("height > 13 && height < 19");
+      Serial.print("pixels[2] = ");
+      Serial.println(pixels[2]);
+      Serial.print("pixels[3] = ");
+      Serial.println(pixels[3]);
+#endif
+   }
+}
+
+int stripPositionToHeight(int pos)
+{
+   int height;
+
+   // Right side of vertical stroke - LEDs 0-19
+   if (pos < 20)
+   {
+      height = pos;
+   }
+   // Left side of vertical stroke - LEDs 32-51
+   else if (pos > 31)
+   {
+      height = 19 - (pos - 32);
+   }
+   // Top of top stroke - LEDs 20-25
+   else if (pos >= 20 && pos <= 25)
+   {
+      height = 19 - (pos - 20);
+   }
+   // Bottom of top stroke - LEDs 26-31
+   else if (pos >= 26 && pos <= 31)
+   {
+      // 18 is not a mistake
+      // we also want to work up, not down
+      height = 18 - (31 - pos);
+   }
+
+   return height;
+}
+
+
+
 uint32_t Wheel(uint16_t WheelPos)
 {
-  byte r, g, b;
-  switch(WheelPos / 128)
-  {
-    case 0:
-      r = 127 - WheelPos % 128; // red down
-      g = WheelPos % 128;       // green up
-      b = 0;                    // blue off
-      break;
-    case 1:
-      g = 127 - WheelPos % 128; // green down
-      b = WheelPos % 128;       // blue up
-      r = 0;                    // red off
-      break;
-    case 2:
-      b = 127 - WheelPos % 128; // blue down
-      r = WheelPos % 128;       // red up
-      g = 0;                    // green off
-      break;
-  }
-  return(strip.Color(r,g,b));
+   byte r, g, b;
+   switch(WheelPos / 128)
+   {
+   case 0:
+      r = 127 - WheelPos % 128;   //Red down
+      g = WheelPos % 128;      // Green up
+      b = 0;                  //blue off
+      break; 
+   case 1:
+      g = 127 - WheelPos % 128;  //green down
+      b = WheelPos % 128;      //blue up
+      r = 0;                  //red off
+      break; 
+   case 2:
+      b = 127 - WheelPos % 128;  //blue down 
+      r = WheelPos % 128;      //red up
+      g = 0;                  //green off
+      break; 
+   }
+   return(strip.Color(r,g,b));
 }
 
-//Remaps the led numbers to leds that form a logical "line"
-int pixelMap(int ledNum)
-{
-  if (ledNum <= 20)
-  {
-    return ledNum;
-  }
-  else if (ledNum == 21)
-  {
-    ledNum = 33;
-    return ledNum;
-  }
-  else if (ledNum >= 21 && ledNum <= 32)
-  {
-    ledNum--;
-    return ledNum;
-  }
-  else
-  {
-    ledNum++;
-    return ledNum;
-  }
-}
