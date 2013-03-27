@@ -123,8 +123,16 @@ void loop()
          }
          break;
       case PATTERN_EQ_METER:
-         showLevel(averageSoundLevel());
+         while (!hasPatternChanged())
+         {
+            showLevel(averageSoundLevel());
+         }
          break;
+      case PATTERN_RAINBOW_PARTY:
+         while (!hasPatternChanged())
+         {
+            rainbowPartyMode();
+         }
       default:
          blankStrip();
          break;
@@ -154,26 +162,24 @@ void receiveData(int numBytes)
       temp = Wire.read();
    }
 
-   // We allow for 100 patterns. If the number is < 100, it is a pattern
-   //THIS HAS BEEN SET TO 9 BUT NEEDS TO BE CHANGED
-   if (temp < 9)
+   if (temp != pattern)
    {
       pattern = temp;
       patternChanged = true;
    }
-   else
-   {
+
+      //      pattern = temp;
       // If this is not a pattern, read the data into the packet data array for the
       // function to process
-      int i = 1;
+      int i = 0;
 
       // We already have the first byte
-      packetData[0] = temp;
+//      packetData[0] = temp;
 
       // Now read the rest of the bytes
       while (Wire.available() > 0 && i < PACKET_DATA_LENGTH)
       {
-         packetData[i] = Wire.read();
+         packetData[i++] = Wire.read();
       }
 
       // If we have not filled the buffer, mark the end of data with -1
@@ -181,7 +187,8 @@ void receiveData(int numBytes)
       {
          packetData[i] = -1;
       }
-   }
+//      patternChanged = true;
+   
 }
 
 boolean timedWait(int waitTime)
@@ -527,36 +534,32 @@ void twinkle()
    }
 }
 
-void twinkle(int times, uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, int wait)
+void twinkle(uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, int wait)
 {
    int numLit = 6;
 
-   for (int i = 0; i < times; i++)
-   {  
-      int pixels[NUM_PIXELS_TOTAL] = { 0 };
-      randomSeed(micros());
+   int pixels[NUM_PIXELS_TOTAL] = { 0 };
+   randomSeed(micros());
 
-      for (int i = 0; i < numLit; i++)
-      {
-         pixels[random(NUM_PIXELS_TOTAL)] = 1;
-      }
-
-      for (int i=0; i < strip.numPixels(); i++)
-      {
-         if (pixels[i])
-         {
-            strip.setPixelColor(i, strip.Color(fgred, fggreen, fgblue));
-         }
-         else
-         {
-            strip.setPixelColor(i, strip.Color(bgred, bggreen, bgblue));
-         }
-      }  
-      strip.show();   // write all the pixels out
-      // TODO: Change to timedWait()
-      timedWait(wait);
+   for (int i = 0; i < numLit; i++)
+   {
+      pixels[random(NUM_PIXELS_TOTAL)] = 1;
    }
 
+   for (int i=0; i < strip.numPixels(); i++)
+   {
+      if (pixels[i])
+      {
+         strip.setPixelColor(i, strip.Color(fgred, fggreen, fgblue));
+      }
+      else
+      {
+         strip.setPixelColor(i, strip.Color(bgred, bggreen, bgblue));
+      }
+   }  
+   strip.show();   // write all the pixels out
+
+   timedWait(wait);
 }
 
 void rainbowTwinkle(int times, int wait)
@@ -819,7 +822,7 @@ void showLevel(int p_level)
 {
    int height;
    int pixels[4];
-
+   
    for (int i=0; i < strip.numPixels(); i++)
    {
       strip.setPixelColor(i, 0);  // turn all pixels off
@@ -849,7 +852,7 @@ uint32_t getLevelColor(int level)
       // Orange
       return strip.Color(127,127,0);
    }
-   else if (level >= 16 && level < 19)
+   else if (level > 16)
    {
       // Red
       return strip.Color(127,0,0);
@@ -860,7 +863,7 @@ int averageSoundLevel()
 {
    int average = 0;
    
-   average = (packetData[2] + packetData[3]) / 2;
+   average = (packetData[0] + packetData[1]) / 2;
    
    if (average < 0)
    {
@@ -872,4 +875,62 @@ int averageSoundLevel()
    }
    
    return average;
+}
+
+void rainbowPartyMode()
+{
+   int p_level;
+   int height;
+   int pixels[4];
+   int i, j;
+   uint32_t color;
+
+   int center = HALF_LENGTH / 2;
+
+   for (int i=0; i < strip.numPixels(); i++)
+   {
+      strip.setPixelColor(i, 0);  // turn all pixels off
+   }
+
+   // Note: Due to the layout of the strip, if we count up with i, it goes towards the center,
+   // but if we count down, we go from the center towards the end
+   i = 384 - 1;
+
+   // Iterate through all colours
+   while(i >= 0 && !hasPatternChanged())
+   {
+      // Loop through the pixels, from the center out
+      for (j=0; j < center; j++)
+      {
+         // Get the colour for this position
+         color = Wheel( ((j * 384 / center / 2) + i) % 384);
+
+         // Set the pixels on each side of the ceneter, on both strips
+         // TODO: Change to use the height, not strip position
+         strip.setPixelColor(center - 1 - j, color);
+         strip.setPixelColor(center + j, color);
+         strip.setPixelColor(NUM_PIXELS_TOTAL - center - 1 - j, color);
+         strip.setPixelColor(NUM_PIXELS_TOTAL - center + j, color);
+      }
+      
+      p_level = averageSoundLevel();
+      
+      for (height = 20; height >= p_level*2; height--)
+      {
+         heightToPixels(height, pixels);
+      
+         for (int i=0; i < 4 && pixels[i] > -1; i++)
+         {
+            strip.setPixelColor(pixels[i], 0);
+         }
+      }
+
+      strip.show();   // write all the pixels out
+
+      if (hasPatternChanged())
+      {
+         return;
+      }
+      i--;
+   }
 }

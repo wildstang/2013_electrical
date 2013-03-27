@@ -35,7 +35,7 @@ By: Josh Smith and Steve Garward
 
 // Mic I/O
 #define MIC_STROBE 4
-#define MIC_RESET 0
+#define MIC_RESET 7  //This needs to be verified with board prototype!
 #define MIC_IN A2
 
 volatile boolean patternSelectionChanged = false;
@@ -93,7 +93,7 @@ void setup()
    // Configure Mic pins
    pinMode(MIC_STROBE, OUTPUT);
    pinMode(MIC_RESET, OUTPUT);
-   pinMode(MIC_IN, INPUT);
+   //pinMode(MIC_IN, INPUT); This may need to be readded but it currently is residing like this due to testing
    
    analogReference(DEFAULT);
 
@@ -170,41 +170,69 @@ void loop()
          break;
       case PATTERN_RED_FILL:
          sendPattern(SIGN_ALL, PATTERN_RED_FILL, NULL, 0, 0);
-        break;
+         break;
       case PATTERN_BLUE_FILL:
-       sendPattern(SIGN_ALL, PATTERN_BLUE_FILL, NULL, 0, 0);
-      break;
+         sendPattern(SIGN_ALL, PATTERN_BLUE_FILL, NULL, 0, 0);
+         break;
+      case PATTERN_RED_FILL_SHIMMER:
+         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         break;
+      case PATTERN_BLUE_FILL_SHIMMER:
+         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         break;
       case PATTERN_RED_FILL_TILT:
-       sendPattern(SIGN_1, PATTERN_RED_FILL, NULL, 0, 0);
+         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
 //      while (accelAngle(X_AXIS, 30))
 //     {
 //        // Do nothing
 //      }
-      sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
-      timedWait(1000);
-      sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         timedWait(1000);
+         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         timedWait(1000);
+         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
          break;
       case PATTERN_BLUE_FILL_TILT:
-      sendPattern(SIGN_1, PATTERN_BLUE_FILL, NULL, 0, 0);
+         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
 //      while (accelAngle(X_AXIS, 30))
 //      {
 //        // Do nothing
 //      }
-      sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
-      timedWait(1000);
-      sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         timedWait(1000);
+         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         timedWait(1000);
+         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
          break;
       case PATTERN_TWINKLE:
-      sendPattern(SIGN_ALL, PATTERN_TWINKLE, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_TWINKLE, NULL, 0, 0);
          break;
       case PATTERN_EQ_METER:
+         while (!hasPatternChanged())
+         {
          readSoundData();
          sendPattern(SIGN_1, PATTERN_EQ_METER, spectrumValue, 1, 2);
          sendPattern(SIGN_2, PATTERN_EQ_METER, spectrumValue, 3, 2);
          sendPattern(SIGN_3, PATTERN_EQ_METER, spectrumValue, 5, 2);
+         timedWait(20);
+         updateDisplay();
+         }
+         break;
+      case PATTERN_RAINBOW_PARTY:
+         while (!hasPatternChanged())
+         {
+         readSoundData();
+         sendPattern(SIGN_1, PATTERN_RAINBOW_PARTY, spectrumValue, 1, 2);
+         sendPattern(SIGN_2, PATTERN_RAINBOW_PARTY, spectrumValue, 3, 2);
+         sendPattern(SIGN_3, PATTERN_RAINBOW_PARTY, spectrumValue, 5, 2);
+         timedWait(20);
+         updateDisplay();
+         }
          break;
       default:
-      sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
          break;
       }
   }
@@ -286,6 +314,10 @@ String getPatternName(byte pattern)
          return TWINKLE_TEXT;
       case PATTERN_EQ_METER:
          return EQ_METER_TEXT;
+      case PATTERN_TWINKLE_COLOR:
+         return TWINKLE_COLOR_TEXT;
+      case PATTERN_RAINBOW_PARTY:
+         return RAINBOW_PARTY_TEXT;
       default:
          return "None            ";
          break;
@@ -395,7 +427,7 @@ void clearPatternSelectionChanged()
 //Calls the sendPatternMessage function to actually send the pattern command
 //over the I2C lines
 
-void sendPattern(int sign, int pattern, int data[], int start,  int length)
+void sendPattern(int sign, int pattern, int data[], int start, int length)
 {
   if (sign == SIGN_ALL)
   {
@@ -416,7 +448,7 @@ void sendPatternMessage(int address, int pattern, int data[], int start, int len
   Wire.write(pattern);
   if (data != NULL)
   {
-     for (int i = start; i < length; i++)
+     for (int i = start; i < (start+length); i++)
      {
         Wire.write(data[i]);
      }
@@ -514,14 +546,15 @@ void readSoundData()
      digitalWrite(MIC_STROBE, LOW);
      delayMicroseconds(30);  // to allow the output to settle
      spectrumValue[i] = analogRead(MIC_IN) - baseline[i];
+     digitalWrite(MIC_STROBE, HIGH);
      if (spectrumValue[i] < 0)
      {
        spectrumValue[i] = 0;
      }
+     
+     spectrumValue[i] = spectrumValue[i] * SENSITIVITY / 100;
 
      totalVolume += spectrumValue[i];
-
-     digitalWrite(MIC_STROBE, HIGH);
    }
 
    // Average the volume
@@ -539,4 +572,11 @@ void readSoundData()
    }
 }
 
-
+void updateDisplay()
+{
+   if (isPatternSelectionChanged())
+   {
+      showSelection();
+      clearPatternSelectionChanged();
+   }
+}
