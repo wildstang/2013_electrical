@@ -37,6 +37,7 @@ By: Josh Smith and Steve Garward
 #define MIC_STROBE 4
 #define MIC_RESET 7  //This needs to be verified with board prototype!
 #define MIC_IN A2
+#define MIC_SENSITIVITY A3
 
 volatile boolean patternSelectionChanged = false;
 volatile boolean patternChanged = false;
@@ -53,6 +54,8 @@ byte r, g, b;
 
 /****************************** Sound Board Code ******************************/
 int PIXELS_PER_SEGMENT = 2; //How many LEDs we want to use for each segment of the "VU meter"
+
+//This sensitivity is changed based on the pot value. A default value has been added here for reference
 float SENSITIVITY = 2.3; //This sets the sensitivity of the mic (increase for quiet environment (3.0 should be upper bound))
 
 int spectrumValue[7]; // to hold a2d values
@@ -93,15 +96,16 @@ void setup()
    // Configure Mic pins
    pinMode(MIC_STROBE, OUTPUT);
    pinMode(MIC_RESET, OUTPUT);
-   //pinMode(MIC_IN, INPUT); This may need to be readded but it currently is residing like this due to testing
+   pinMode(MIC_IN, INPUT);
+   pinMode(MIC_SENSITIVITY, INPUT);
    
+   //Configure the reference on analog to be 5V
    analogReference(DEFAULT);
-
+   
+   //Setup the pin states for the equalizer
    digitalWrite(MIC_RESET, LOW);
    digitalWrite(MIC_STROBE, HIGH);
    
-   //Normally we can't use delay but during setup it doesn't matter since I2C can't be called
-   delay(5000);
    // Initialise and get a baseline
    digitalWrite(MIC_RESET, HIGH);
    digitalWrite(MIC_RESET, LOW);
@@ -537,6 +541,10 @@ void Wheel(uint16_t WheelPos)
 
 void readSoundData()
 {
+   //We first need to read the pot value and map it to between 0 and 30 because our realistic max is 3.0.
+   //Since map only returns whole numbers, we then divide by 10 to get our true max of 3.0.
+   SENSITIVITY = map(analogRead(MIC_SENSITIVITY), 0, 1023, 0, 30) / 10;
+   
    digitalWrite(MIC_RESET, HIGH); 
    digitalWrite(MIC_RESET, LOW);
    totalVolume = 0;
