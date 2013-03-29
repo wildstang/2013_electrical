@@ -15,6 +15,9 @@ public class Sign extends Panel
    private int NUM_PIXELS_TOTAL = 52;
    private int HALF_LENGTH = NUM_PIXELS_TOTAL / 2;
 
+   private Image offScreenImage;
+   private Graphics offScreenGraphics;
+
    public Strip getStrip()
    {
       return strip;
@@ -37,9 +40,9 @@ public class Sign extends Panel
 
    public void drawPattern()
    {
-//      colorChase();
+      colorChase();
 //      rainbowFromCenter(1000);
-        colorFlowDown(0, 0, 127);
+//        colorFlowDown(0, 0, 127);
   }
 
    private void colorChase()
@@ -221,7 +224,12 @@ public class Sign extends Panel
 
    public void paint(Graphics g)
    {
-      Graphics2D g2d = (Graphics2D)g;
+      offScreenImage = createImage(getWidth(), getHeight());
+      offScreenGraphics = offScreenImage.getGraphics();
+      Graphics2D g2d = (Graphics2D)offScreenGraphics;
+
+      offScreenGraphics.clearRect(0, 0, getWidth(), getHeight());
+
       ArrayList<Pixel> pixels = strip.getPixels();
       int gap = 20;
 
@@ -243,6 +251,8 @@ public class Sign extends Panel
          pixels.get(26 + i).draw(g2d, startX + (i * gap), startY - ((12 + i) * gap));
          pixels.get(26 - 1 - i).draw(g2d, startX + (i * gap), startY - ((13 + i) * gap));
       }
+
+      g.drawImage(offScreenImage, 0, 0, this);
    }
 
 
