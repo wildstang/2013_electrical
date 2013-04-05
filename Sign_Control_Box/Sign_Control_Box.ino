@@ -19,8 +19,8 @@ By: Josh Smith and Steve Garward
 #define SIGN_ALL 255
 
 // Pin definitions
-#define UP_BUTTON 7//#define RED_BUTTON 1
-#define DOWN_BUTTON 8//#define BLUE_BUTTON 7
+#define RED_BUTTON 7//#define RED_BUTTON 1
+#define BLUE_BUTTON 8//#define BLUE_BUTTON 7
 //#define PARTY_BUTTON 8
 
 // LCD backlight RGB PWM pins
@@ -73,12 +73,12 @@ void setup()
    // Set the button pins as inputs
    pinMode(RED_BUTTON, INPUT);
    pinMode(BLUE_BUTTON, INPUT);
-   pinMode(PARTY_BUTTON, INPUT);
+   //pinMode(PARTY_BUTTON, INPUT);
    pinMode(SELECT_BUTTON, INPUT);
    // Turn on the button input pull-up resistors
    digitalWrite(RED_BUTTON, HIGH);
    digitalWrite(BLUE_BUTTON, HIGH);
-   digitalWrite(PARTY_BUTTON, HIGH);
+   //digitalWrite(PARTY_BUTTON, HIGH);
    digitalWrite(SELECT_BUTTON, HIGH);
   
    // Configure LCD backlight pins
@@ -87,11 +87,11 @@ void setup()
    pinMode(LCD_BLUE, OUTPUT);
 
    // Set the Encoder pins to inputs
-   pinMode(ENCODER_A, INPUT);
-   pinMode(ENCODER_B, INPUT);
+   //pinMode(ENCODER_A, INPUT);
+   //pinMode(ENCODER_B, INPUT);
    // Turn on their internal pull-up resistors
-   digitalWrite(ENCODER_A, HIGH);
-   digitalWrite(ENCODER_B, HIGH);
+   //digitalWrite(ENCODER_A, HIGH);
+   //digitalWrite(ENCODER_B, HIGH);
 
    // Configure Mic pins
    pinMode(MIC_STROBE, OUTPUT);
@@ -141,8 +141,8 @@ void setup()
 //   accel.begin();
 //   accel.beginMeasure();
    
-   PCintPort::attachInterrupt(2, upInterrupt, FALLING);
-   PCintPort::attachInterrupt(3, downInterrupt, FALLING);
+   PCintPort::attachInterrupt(RED_BUTTON, upInterrupt, FALLING);
+   PCintPort::attachInterrupt(BLUE_BUTTON, downInterrupt, FALLING);
    PCintPort::attachInterrupt(SELECT_BUTTON, selectInterrupt, FALLING);
 
 //If we have defined WS_DEBUG, enable serial for debugging
@@ -474,7 +474,7 @@ void clearPatternSelectionChanged()
 //      }
 //   last_interrupt_time = interrupt_time;
 
-}
+//}
 
 //Calls the sendPatternMessage function to actually send the pattern command
 //over the I2C lines
