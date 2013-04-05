@@ -40,9 +40,14 @@ public class Sign extends Panel
 
    public void drawPattern()
    {
-      colorChase();
-//      rainbowFromCenter(1000);
-//        colorFlowDown(0, 0, 127);
+      for (int i = 0; i < 5; i++)
+      {
+//      colorChase();
+//      rainbowFromCenter(20);
+        colorFlowDown(0, 127, 127);
+//         explode(127, 0, 0);
+      }
+
   }
 
    private void colorChase()
@@ -63,6 +68,183 @@ public class Sign extends Panel
          }
          strip.show();
          timedWait(50);
+      }
+   }
+
+
+
+   void explode(int red, int green, int blue)
+   {
+      int white = strip.Color(127, 127, 127);
+      int dark = strip.Color(30, 0, 0);
+
+      int center = 20 / 2;
+      int pixelsUpper[];
+      int pixelsLower[];
+
+      solidColor(127, 127, 127);
+
+      timedWait(100);
+
+      // Set all pixels to the same colour
+      for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+      {
+         strip.setPixelColor(i, strip.Color(red, green, blue));
+      }
+
+      int lower;
+      int upper;
+      // Reverse flow fill from the center out, with a white inside line
+      // fill the center with a twinkle fill. Good Lord...
+      for (int count = 1; count < center; count++)
+      {
+         lower = center - count;
+         upper = center + count - 1;
+         System.out.println("Count = " + count);
+
+         // Black out the previous rows
+         pixelsLower = heightToPixels(lower + 1);  // account for center
+         pixelsUpper = heightToPixels(upper - 1);
+         System.out.println("PixelsLower");
+         for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+         {
+            if (Math.random() * 30 > 15)
+            {
+               strip.setPixelColor(pixelsLower[i], white);
+            }
+            else
+            {
+               strip.setPixelColor(pixelsLower[i], dark);
+            }
+         }
+         System.out.println("PixelsUpper");
+         for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+         {
+            if (Math.random() * 30 > 15)
+            {
+               strip.setPixelColor(pixelsUpper[i], white);
+            }
+            else
+            {
+               strip.setPixelColor(pixelsUpper[i], dark);
+            }
+         }
+
+         // Make the center line white
+         pixelsLower = heightToPixels(lower);
+         pixelsUpper = heightToPixels(upper);
+         for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+         {
+            strip.setPixelColor(pixelsLower[i], white);
+         }
+         for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+         {
+            strip.setPixelColor(pixelsUpper[i], white);
+         }
+
+         strip.show();
+         timedWait(30);
+      }
+
+      // Now do a slow twinkle fade out effect
+      for (int i = 0; i < 30; i++)
+      {
+         twinkle(40, 0, 0, 127, 80, 80, 50, 6);
+      }
+      twinkleFade(127, 0, 0, 5, 70, 6, 8);
+   }
+
+
+   void twinkle(int bgred, int bggreen, int bgblue, int fgred, int fggreen, int fgblue, int wait, int numLit)
+   {
+      int pixels[] = new int[NUM_PIXELS_TOTAL];
+
+      for (int i = 0; i < numLit; i++)
+      {
+         pixels[(int)(Math.random() * NUM_PIXELS_TOTAL)] = 1;
+      }
+
+      for (int i=0; i < strip.numPixels(); i++)
+      {
+         if (pixels[i] > 0)
+         {
+            strip.setPixelColor(i, strip.Color(fgred, fggreen, fgblue));
+         }
+         else
+         {
+            strip.setPixelColor(i, strip.Color(bgred, bggreen, bgblue));
+         }
+      }
+      strip.show();   // write all the pixels out
+
+      timedWait(wait);
+   }
+
+   void twinkleFade(int red, int green, int blue, int fadeFactor, int wait, int numLit, int numTimes)
+   {
+      int redFade = red / fadeFactor;
+      int greenFade = green / fadeFactor;
+      int blueFade = blue / fadeFactor;
+
+      int currentRed = red;
+      int currentGreen = green;
+      int currentBlue = blue;
+
+      int currentColor = strip.Color(currentRed, currentGreen, currentBlue);
+      int black = strip.Color(0, 0, 0);
+
+      // While we are not total black...
+      while (currentRed > 0 || currentGreen > 0 || currentBlue > 0)
+      {
+         // Repeat until there is a requested pattern change
+         for (int count = 0; count < numTimes; count++)
+         {
+            // Initialise an array of flags to 0
+            int pixels[] = new int[NUM_PIXELS_TOTAL];
+
+            // Pick random pixels (a total of numLit) and set their flag to 1.
+            // These are the pixels we light up
+            for (int i = 0; i < numLit; i++)
+            {
+               pixels[(int)(Math.random() * NUM_PIXELS_TOTAL)] = 1;
+            }
+
+            // Now light up the pixels.  If the flag is a 1, we set it to white, otherwise
+            // we turn it off.
+            for (int i=0; i < strip.numPixels(); i++)
+            {
+               if (pixels[i] == 1)
+               {
+                  strip.setPixelColor(i, currentColor);
+               }
+               else
+               {
+                  strip.setPixelColor(i, black);
+               }
+            }
+
+            // Show the pattern
+            strip.show();   // write all the pixels out
+
+            timedWait(wait);
+         }
+         currentRed -= redFade;
+         if (currentRed < 0)
+         {
+            currentRed = 0;
+         }
+
+         currentGreen -= greenFade;
+         if (currentGreen < 0)
+         {
+            currentGreen = 0;
+         }
+         currentBlue -= blueFade;
+         if (currentBlue < 0)
+         {
+            currentBlue = 0;
+         }
+         currentColor = strip.Color(currentRed, currentGreen, currentBlue);
       }
    }
 

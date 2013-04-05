@@ -30,7 +30,7 @@ public class Strip
       int red = (color >> 8) & 0xFF;
       int blue =  (color & 0xFF);
 
-      System.out.println("setPixelColor(): Pixel(" + index + ") Red = " + red + ", green = " + green + ", blue = " + blue);
+//      System.out.println("setPixelColor(): Pixel(" + index + ") Red = " + red + ", green = " + green + ", blue = " + blue);
 
       Pixel pixel = m_pixels.get(index);
       pixel.setRGB(red, green, blue);
