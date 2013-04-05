@@ -19,10 +19,8 @@ packets will not be handled during a delay() period. Use the timedWaitFunction.
 Todo:
 -----
 
-⁃	Test the new timedWaitFunction() with I2C to ensure it interrupts correctly
+-   Integrate accelerometer code into control box
 
-⁃	Finish prototype of I2C protocol
+-   Optimize existing code
 
-⁃	Import sound code
-
-⁃	Finish importing functions from main branch
+-   Correct formatting variations throughout code
