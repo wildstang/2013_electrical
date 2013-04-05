@@ -286,14 +286,14 @@ void loop()
 //Since this is an interrupt function, this will be called no matter what loop we are in
 void selectInterrupt()
 {
-  static unsigned long last_interrupt_time = 0;
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  if (interrupt_time - last_interrupt_time > 200) 
-  {
-     patternChanged = true;
-  }
-  last_interrupt_time = interrupt_time;
+   static unsigned long last_interrupt_time = 0;
+   unsigned long interrupt_time = millis();
+   // If interrupts come faster than 200ms, assume it's a bounce and ignore
+   if (interrupt_time - last_interrupt_time > 200) 
+   {
+      patternChanged = true;
+   }
+   last_interrupt_time = interrupt_time;
 }
 
 //This returns true when a new pattern has been selected
@@ -381,37 +381,37 @@ String getPatternName(byte pattern)
 //This is called when the "up" button is pressed
 void upInterrupt()
 {
-  static unsigned long last_interrupt_time = 0;
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  if (interrupt_time - last_interrupt_time > 200) 
-  {
-     pattern++;
-     if (pattern > PATTERN_MAX)
-     {
-        pattern = 0;
-     }
-     patternSelectionChanged = true;
-  }
-  last_interrupt_time = interrupt_time;
+   static unsigned long last_interrupt_time = 0;
+   unsigned long interrupt_time = millis();
+   // If interrupts come faster than 200ms, assume it's a bounce and ignore
+   if (interrupt_time - last_interrupt_time > 200) 
+   {
+      pattern++;
+      if (pattern > PATTERN_MAX)
+      {
+         pattern = 0;
+      }
+      patternSelectionChanged = true;
+   }
+   last_interrupt_time = interrupt_time;
 }
 
 //This is called when the "down" button is pressed
 void downInterrupt()
 {
-  static unsigned long last_interrupt_time = 0;
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  if (interrupt_time - last_interrupt_time > 200) 
-  {
-     pattern--;
-     if (pattern < 0)
-     {
-        pattern = PATTERN_MAX;
-     }
-     patternSelectionChanged = true;
-  }
-  last_interrupt_time = interrupt_time;
+   static unsigned long last_interrupt_time = 0;
+   unsigned long interrupt_time = millis();
+   // If interrupts come faster than 200ms, assume it's a bounce and ignore
+   if (interrupt_time - last_interrupt_time > 200) 
+   {
+      pattern--;
+      if (pattern < 0)
+      {
+         pattern = PATTERN_MAX;
+      }
+      patternSelectionChanged = true;
+   }
+   last_interrupt_time = interrupt_time;
 }
 
 //A simple function to return if a new pattern has been "selected" for the menu
@@ -485,7 +485,7 @@ void sendPattern(int sign, int pattern)
 #else
 void sendPattern(int sign, int pattern)
 {
-    sendPattern(sign, pattern, NULL, 0, 0);
+   sendPattern(sign, pattern, NULL, 0, 0);
 }
 #endif
 
@@ -494,31 +494,30 @@ void sendPattern(int sign, int pattern)
 
 void sendPattern(int sign, int pattern, int data[], int start, int length)
 {
-  if (sign == SIGN_ALL)
-  {
-    sendPatternMessage(SIGN_1, pattern, data, start, length);
-    sendPatternMessage(SIGN_2, pattern, data, start, length);
-    sendPatternMessage(SIGN_3, pattern, data, start, length);
-  }
-  else
-  {
-    sendPatternMessage(sign, pattern, data, start, length);
-  }
+   if (sign == SIGN_ALL)
+   {
+      sendPatternMessage(SIGN_1, pattern, data, start, length);
+      sendPatternMessage(SIGN_2, pattern, data, start, length);
+      sendPatternMessage(SIGN_3, pattern, data, start, length);
+   }
+   else
+   {
+      sendPatternMessage(sign, pattern, data, start, length);
+   }
 }
 //This function takes the address and pattern command data in and sends it out over I2C
 void sendPatternMessage(int address, int pattern, int data[], int start, int length)
 {
-   
-  Wire.beginTransmission(address);
-  Wire.write(pattern);
-  if (data != NULL)
-  {
-     for (int i = start; i < (start+length); i++)
-     {
-        Wire.write(data[i]);
-     }
-  }
-  Wire.endTransmission();
+   Wire.beginTransmission(address);
+   Wire.write(pattern);
+   if (data != NULL)
+   {
+      for (int i = start; i < (start+length); i++)
+      {
+         Wire.write(data[i]);
+      }
+   }
+   Wire.endTransmission();
 }
 
 //Checks if the chosen pattern has been changed and returns it
@@ -538,16 +537,16 @@ void setPattern(int newPattern)
 //Delay should not be used as this function allows I2C bytes to be recieved while we are waiting in a loop
 boolean timedWait(unsigned int waitTime)
 {
-  unsigned long previousMillis = millis();
-  unsigned long currentMillis = millis();
-  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
-  {
-    if (patternChanged == true)
-    {
-      return true;
-    }
-  }
-  return false;
+   unsigned long previousMillis = millis();
+   unsigned long currentMillis = millis();
+   for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
+   {
+     if (patternChanged == true)
+     {
+        return true;
+     }
+   }
+   return false;
 }
 
 //Takes in a RGB level and sets the LCD backlight to match these values
@@ -580,24 +579,24 @@ void setDisplayColor(int red, int green, int blue)
 
 void Wheel(uint16_t WheelPos)
 {
-  switch(WheelPos / 256)
-  {
-    case 0:
-      r = 255 - WheelPos % 256;   //Red down
-      g = WheelPos % 256;      // Green up
-      b = 0;                  //blue off
-      break; 
-    case 1:
-      g = 255 - WheelPos % 256;  //green down
-      b = WheelPos % 256;      //blue up
-      r = 0;                  //red off
-      break; 
-    case 2:
-      b = 255 - WheelPos % 256;  //blue down 
-      r = WheelPos % 256;      //red up
-      g = 0;                  //green off
-      break; 
-  }
+   switch(WheelPos / 256)
+   {
+     case 0:
+        r = 255 - WheelPos % 256;   //Red down
+        g = WheelPos % 256;      // Green up
+        b = 0;                  //blue off
+        break; 
+     case 1:
+        g = 255 - WheelPos % 256;  //green down
+        b = WheelPos % 256;      //blue up
+        r = 0;                  //red off
+        break; 
+     case 2:
+        b = 255 - WheelPos % 256;  //blue down 
+        r = WheelPos % 256;      //red up
+        g = 0;                  //green off
+        break; 
+   }
 }
 
 void readSoundData()
