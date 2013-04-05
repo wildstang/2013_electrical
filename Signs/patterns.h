@@ -11,6 +11,7 @@
 #define PATTERN_EQ_METER 9
 #define PATTERN_TWINKLE_COLOR 10
 #define PATTERN_RAINBOW_PARTY 11
+#define PATTERN_EQ_EXPLODE 12
 
 #define BLANK_TEXT "Blank           "
 #define RAINBOW_TEXT "Rainbow         "
@@ -25,5 +26,6 @@
 #define EQ_METER_TEXT "EQ meter        "
 #define TWINKLE_COLOR_TEXT "Twinkle Color   "
 #define RAINBOW_PARTY_TEXT "Rainbow Party   "
+#define EQ_EXPLODE_TEXT "EQ Explode      "
 
-#define PATTERN_MAX 11
+#define PATTERN_MAX 12

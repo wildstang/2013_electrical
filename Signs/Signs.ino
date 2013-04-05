@@ -13,6 +13,8 @@ By: Josh Smith and Steve Garward
 #define NUM_PIXELS_TOTAL 52
 #define HALF_LENGTH NUM_PIXELS_TOTAL / 2
 
+#define MAX_HEIGHT 20
+
 //#define WS_DEBUG
 
 // This will use the following pins:
@@ -32,6 +34,7 @@ boolean patternChanged = false;
 #define SIGN_2 12
 #define SIGN_3 13
 
+int start;
 
 void setup()
 {
@@ -133,6 +136,27 @@ void loop()
          {
             rainbowPartyMode();
          }
+         break;
+      case PATTERN_EQ_EXPLODE:
+         start = millis();
+         
+         // Glow orange and red
+         while (millis() - start < 3000)
+         {
+            twinkle(50, 50, 0, 127, 127, 127, 40, 6);
+         }
+         
+         // Glow bright red
+         start = millis();
+         while (millis() - start < 2000)
+         {
+            twinkle(50, 0, 0, 127, 127, 127, 20, 15);
+         }
+         
+         // Break up pattern
+         explode(127, 0, 0);
+         break;
+
       default:
          blankStrip();
          break;
@@ -534,11 +558,83 @@ void twinkle()
    }
 }
 
-void twinkle(uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, int wait)
-{
-   int numLit = 6;
 
-   int pixels[NUM_PIXELS_TOTAL] = { 0 };
+void twinkleFade(uint8_t red, uint8_t green, uint8_t blue, int fadeFactor, int wait, int numLit, int numTimes)
+{
+   uint8_t redFade = red / fadeFactor;
+   uint8_t greenFade = green / fadeFactor;
+   uint8_t blueFade = blue / fadeFactor;
+   
+   uint8_t currentRed = red;
+   uint8_t currentGreen = green;
+   uint8_t currentBlue = blue;
+   
+   uint32_t currentColor = strip.Color(currentRed, currentGreen, currentBlue);
+   uint32_t black = strip.Color(0, 0, 0);
+   
+   // While we are not total black...
+   while (currentRed || currentGreen || currentBlue)
+   {
+      // Repeat until there is a requested pattern change
+      for (int count = 0; count < numTimes; count++)
+      {
+         // Initialise an array of flags to 0
+         int pixels[NUM_PIXELS_TOTAL] = { 0 };
+         randomSeed(micros());
+   
+         // Pick random pixels (a total of numLit) and set their flag to 1.
+         // These are the pixels we light up
+         for (int i = 0; i < numLit; i++)
+         {
+            pixels[random(NUM_PIXELS_TOTAL)] = 1;
+         }
+   
+         // Now light up the pixels.  If the flag is a 1, we set it to white, otherwise
+         // we turn it off.
+         for (int i=0; i < strip.numPixels(); i++)
+         {
+            if (pixels[i])
+            {
+               strip.setPixelColor(i, currentColor);
+            }
+            else
+            {
+               strip.setPixelColor(i, black);
+            }
+         }
+   
+         // Show the pattern
+         strip.show();   // write all the pixels out
+   
+         if (timedWait(wait))
+         {
+            break;
+         }
+      }
+      currentRed -= redFade;
+      if (currentRed < 0)
+      {
+         currentRed = 0;
+      }
+      
+      currentGreen -= greenFade;
+      if (currentGreen < 0)
+      {
+         currentGreen = 0;
+      }
+      currentBlue -= blueFade;
+      if (currentBlue < 0)
+      {
+         currentBlue = 0;
+      }
+      currentColor = strip.Color(currentRed, currentGreen, currentBlue);
+   }
+}
+
+
+void twinkle(uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, int wait, int numLit)
+{
+   int pixels[NUM_PIXELS_TOTAL] = {0};
    randomSeed(micros());
 
    for (int i = 0; i < numLit; i++)
@@ -934,3 +1030,153 @@ void rainbowPartyMode()
       i--;
    }
 }
+
+void setStripColor(uint8_t red, uint8_t green, uint8_t blue)
+{
+   uint32_t color = strip.Color(red, green, blue);
+
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      strip.setPixelColor(i, color);
+   }
+}
+
+void explode(uint8_t red, uint8_t green, uint8_t blue)
+{
+   uint32_t white = strip.Color(127, 127, 127);
+   uint32_t dark = strip.Color(30, 30, 0);
+   
+   int center = MAX_HEIGHT / 2;
+   int pixelsUpper[4];
+   int pixelsLower[4];
+   
+   solidColor(red, green, blue);
+
+   // Reverse flow fill from the center out, with a white inside line
+   // fill the center with a twinkle fill. Good Lord...
+   for (int count = center - 1; count >= 0; count--)
+   {
+      // Don't black out the center row
+      if (count != center - 1)
+      {
+         // Black out the previous rows
+         heightToPixels(count - 1, pixelsLower);
+         heightToPixels(count, pixelsUpper);
+         for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+         {
+            strip.setPixelColor(pixelsLower[i], dark);
+         }
+         for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+         {
+            strip.setPixelColor(pixelsUpper[i], dark);
+         }
+      }
+
+      // Make the center line white
+      heightToPixels(count, pixelsLower);
+      heightToPixels(count + 1, pixelsUpper);
+      for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+      {
+         strip.setPixelColor(pixelsLower[i], white);
+      }
+      for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+      {
+         strip.setPixelColor(pixelsUpper[i], white);
+      }
+   }
+   
+   // Now do a slow twinkle flow down effect
+   for (int i = MAX_HEIGHT; i >= 0; i--)
+   {
+      // Fill with a low pixel count twinkle
+      twinkleFade(127, 0, 0, 10, 70, 3, 4);
+   }
+}
+
+
+
+
+void explode(int red, int green, int blue)
+{
+   int white = strip.Color(127, 127, 127);
+   int dark = strip.Color(30, 0, 0);
+
+   int center = 20 / 2;
+   int pixelsUpper[4];
+   int pixelsLower[4];
+
+   solidColor(127, 127, 127);
+
+   timedWait(100);
+
+   // Set all pixels to the same colour
+   for (int i = 0; i < NUM_PIXELS_TOTAL; i++)
+   {
+      strip.setPixelColor(i, strip.Color(red, green, blue));
+   }
+
+   int lower;
+   int upper;
+   // Reverse flow fill from the center out, with a white inside line
+   // fill the center with a twinkle fill. Good Lord...
+   for (int count = 1; count < center; count++)
+   {
+      randomSeed(micros());
+      
+      lower = center - count;
+      upper = center + count - 1;
+
+      // Black out the previous rows
+      heightToPixels(lower + 1, pixelsLower);  // account for center
+      heightToPixels(upper - 1, pixelsUpper);
+
+      for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+      {
+         if (random(30) > 15)
+         {
+            strip.setPixelColor(pixelsLower[i], white);
+         }
+         else
+         {
+            strip.setPixelColor(pixelsLower[i], dark);
+         }
+      }
+
+      for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+      {
+         if (random(30) > 15)
+         {
+            strip.setPixelColor(pixelsUpper[i], white);
+         }
+         else
+         {
+            strip.setPixelColor(pixelsUpper[i], dark);
+         }
+      }
+
+      // Make the center line white
+      heightToPixels(lower, pixelsLower);
+      heightToPixels(upper, pixelsUpper);
+      for (int i = 0; i < 4 && pixelsLower[i] > -1; i++)
+      {
+         strip.setPixelColor(pixelsLower[i], white);
+      }
+      for (int i = 0; i < 4 && pixelsUpper[i] > -1; i++)
+      {
+         strip.setPixelColor(pixelsUpper[i], white);
+      }
+
+      strip.show();
+      timedWait(30);
+   }
+
+   // Now do a slow twinkle fade out effect
+   for (int i = 0; i < 30; i++)
+   {
+      twinkle(40, 0, 0, 127, 80, 80, 50, 6);
+   }
+   twinkleFade(127, 0, 0, 5, 70, 6, 8);
+}
+
+
+

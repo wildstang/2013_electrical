@@ -19,9 +19,9 @@ By: Josh Smith and Steve Garward
 #define SIGN_ALL 255
 
 // Pin definitions
-#define RED_BUTTON 1
-#define BLUE_BUTTON 7
-#define PARTY_BUTTON 8
+#define UP_BUTTON 7//#define RED_BUTTON 1
+#define DOWN_BUTTON 8//#define BLUE_BUTTON 7
+//#define PARTY_BUTTON 8
 
 // LCD backlight RGB PWM pins
 #define LCD_RED 5
@@ -29,19 +29,19 @@ By: Josh Smith and Steve Garward
 #define LCD_BLUE 9
 
 // Encoder input pins
-#define SELECT_BUTTON A1
-#define ENCODER_A 2
-#define ENCODER_B 3
+#define SELECT_BUTTON 3
+//#define ENCODER_A 2
+//#define ENCODER_B 3
 
 // Mic I/O
 #define MIC_STROBE 4
-#define MIC_RESET 7  //This needs to be verified with board prototype!
+#define MIC_RESET A0  //This needs to be verified with board prototype!
 #define MIC_IN A2
-#define MIC_SENSITIVITY A3
+#define MIC_SENSITIVITY A1
 
 volatile boolean patternSelectionChanged = false;
 volatile boolean patternChanged = false;
-volatile short pattern = 0;
+volatile int pattern = 0;
 volatile short selectedPattern = 1;
 
 //volatile byte lastSequence;
@@ -133,10 +133,11 @@ void setup()
    }
 
    // set up the LCD's number of rows and columns: 
+#ifndef WS_DEBUG
    lcd.begin(16, 2);
    // Print a message to the LCD.
    lcd.print(" ~ WildStang ~ ");
-      
+#endif
 //   accel.begin();
 //   accel.beginMeasure();
    
@@ -153,12 +154,12 @@ void setup()
 
 void loop()
 {
+   int start = millis();
+   int time = 0;
+   int count = 0;
+
    //Check if the menu option has been changed and if so, update the menu appropriately
-   if (isPatternSelectionChanged())
-   {
-      showSelection();
-      clearPatternSelectionChanged();
-   }
+   updateDisplay();
    
    //If we have a new pattern chosen, call the appropriate functions to handle the updates
    if (newPatternSelected())
@@ -167,76 +168,115 @@ void loop()
       switch (pattern)
       {
       case PATTERN_BLANK:
-         sendPattern(SIGN_ALL, PATTERN_BLANK, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_BLANK);
          break;
       case PATTERN_RAINBOW:
-         sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_RAINBOW);
          break;
       case PATTERN_RED_FILL:
-         sendPattern(SIGN_ALL, PATTERN_RED_FILL, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_RED_FILL);
          break;
       case PATTERN_BLUE_FILL:
-         sendPattern(SIGN_ALL, PATTERN_BLUE_FILL, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_BLUE_FILL);
          break;
       case PATTERN_RED_FILL_SHIMMER:
-         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
-         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
-         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER);
+         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER);
+         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER);
          break;
       case PATTERN_BLUE_FILL_SHIMMER:
-         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
-         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
-         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER);
+         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER);
+         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER);
          break;
       case PATTERN_RED_FILL_TILT:
-         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
-//      while (accelAngle(X_AXIS, 30))
-//     {
-//        // Do nothing
-//      }
+         sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER);
+//         while (accelOverThreshold(30))
+//         {
+//            // Do nothing
+//         }
          timedWait(1000);
-         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER);
          timedWait(1000);
-         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_3, PATTERN_RED_FILL_SHIMMER);
          break;
       case PATTERN_BLUE_FILL_TILT:
-         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
-//      while (accelAngle(X_AXIS, 30))
-//      {
-//        // Do nothing
-//      }
+         sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER);
+//         while (accelOverThreshold(30))
+//         {
+//            // Do nothing
+//         }
          timedWait(1000);
-         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER);
          timedWait(1000);
-         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER, NULL, 0, 0);
+         sendPattern(SIGN_3, PATTERN_BLUE_FILL_SHIMMER);
          break;
       case PATTERN_TWINKLE:
-         sendPattern(SIGN_ALL, PATTERN_TWINKLE, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_TWINKLE);
          break;
       case PATTERN_EQ_METER:
          while (!hasPatternChanged())
          {
-         readSoundData();
-         sendPattern(SIGN_1, PATTERN_EQ_METER, spectrumValue, 1, 2);
-         sendPattern(SIGN_2, PATTERN_EQ_METER, spectrumValue, 3, 2);
-         sendPattern(SIGN_3, PATTERN_EQ_METER, spectrumValue, 5, 2);
-         timedWait(20);
-         updateDisplay();
+            readSoundData();
+            sendPattern(SIGN_1, PATTERN_EQ_METER, spectrumValue, 1, 2);
+            sendPattern(SIGN_2, PATTERN_EQ_METER, spectrumValue, 3, 2);
+            sendPattern(SIGN_3, PATTERN_EQ_METER, spectrumValue, 5, 2);
+            timedWait(20);
+            updateDisplay();
          }
          break;
       case PATTERN_RAINBOW_PARTY:
          while (!hasPatternChanged())
          {
-         readSoundData();
-         sendPattern(SIGN_1, PATTERN_RAINBOW_PARTY, spectrumValue, 1, 2);
-         sendPattern(SIGN_2, PATTERN_RAINBOW_PARTY, spectrumValue, 3, 2);
-         sendPattern(SIGN_3, PATTERN_RAINBOW_PARTY, spectrumValue, 5, 2);
-         timedWait(20);
-         updateDisplay();
+            readSoundData();
+            sendPattern(SIGN_1, PATTERN_RAINBOW_PARTY, spectrumValue, 1, 2);
+            sendPattern(SIGN_2, PATTERN_RAINBOW_PARTY, spectrumValue, 3, 2);
+            sendPattern(SIGN_3, PATTERN_RAINBOW_PARTY, spectrumValue, 5, 2);
+            timedWait(20);
+            updateDisplay();
          }
          break;
+      case PATTERN_EQ_EXPLODE:
+         start = millis();
+         time = 0;
+         count = 0;
+         
+         // Check average level is 10 for over 5s
+         
+         while (!hasPatternChanged() && time < 5000)
+         {
+            readSoundData();
+            sendPattern(SIGN_1, PATTERN_EQ_METER, spectrumValue, 1, 2);
+            sendPattern(SIGN_2, PATTERN_EQ_METER, spectrumValue, 3, 2);
+            sendPattern(SIGN_3, PATTERN_EQ_METER, spectrumValue, 5, 2);
+            timedWait(20);
+            updateDisplay();
+            
+            if (averageVolume >= 30)
+            {
+               // Only check the time every few cycles - no need to be too accurate
+               count++;
+               if (count % 20 == 0)
+               {
+                  time = millis() - start;
+               }
+            }
+            else
+            {
+               // Start the count again
+               time = 0;
+               start = millis();
+               count = 0;
+            }
+         }
+         // Now, explode!
+         sendPattern(SIGN_2, PATTERN_EQ_EXPLODE);
+         timedWait(200);
+         sendPattern(SIGN_1, PATTERN_EQ_EXPLODE);
+         sendPattern(SIGN_3, PATTERN_EQ_EXPLODE);
+         break;
       default:
-         sendPattern(SIGN_ALL, PATTERN_RAINBOW, NULL, 0, 0);
+         sendPattern(SIGN_ALL, PATTERN_RAINBOW);
          break;
       }
   }
@@ -277,6 +317,14 @@ boolean readButton(int buttonPin)
 
 //This prints the name of the pattern that is currently being selected via the options menu
 //This is not the function for showing the pattern that is running
+#ifdef WS_DEBUG
+void showSelection()
+{
+}
+void showSelected()
+{
+}
+#else
 void showSelection()
 {
    lcd.setCursor(0, 0);
@@ -292,7 +340,7 @@ void showSelected()
    lcd.setCursor(1, 1);
    lcd.print(getPatternName(pattern));
 }
-
+#endif
 //Returns the pattern name based on its integer
 String getPatternName(byte pattern)
 {
@@ -322,6 +370,8 @@ String getPatternName(byte pattern)
          return TWINKLE_COLOR_TEXT;
       case PATTERN_RAINBOW_PARTY:
          return RAINBOW_PARTY_TEXT;
+      case PATTERN_EQ_EXPLODE:
+         return EQ_EXPLODE_TEXT;
       default:
          return "None            ";
          break;
@@ -410,26 +460,37 @@ void clearPatternSelectionChanged()
 //   
 //   
 //      pattern += sign;
+
+//      if (pattern < 0)
+//      {
+//         pattern = PATTERN_MAX;
+//      }
+//      else if (pattern > PATTERN_MAX)
+//      {
+//         pattern = 0;
+//      }
+//      Serial.println(pattern);
 //   }
-//}
+//      }
+//   last_interrupt_time = interrupt_time;
+
+}
 
 //Calls the sendPatternMessage function to actually send the pattern command
 //over the I2C lines
-//void sendPattern(int sign, int pattern)
-//{
-//  if (sign == SIGN_ALL)
-//  {
-//    sendPatternMessage(SIGN_1, pattern);
-//    sendPatternMessage(SIGN_2, pattern);
-//    sendPatternMessage(SIGN_3, pattern);
-//  }
-//  else
-//  {
-//    sendPatternMessage(sign, pattern);
-//  }
-//}
-//Calls the sendPatternMessage function to actually send the pattern command
-//over the I2C lines
+#ifdef WS_DEBUG
+void sendPattern(int sign, int pattern)
+{
+}
+#else
+void sendPattern(int sign, int pattern)
+{
+    sendPattern(sign, pattern, NULL, 0, 0);
+}
+#endif
+
+// Calls the sendPatternMessage function to actually send the pattern command
+// over the I2C lines
 
 void sendPattern(int sign, int pattern, int data[], int start, int length)
 {
@@ -560,24 +621,25 @@ void readSoundData()
        spectrumValue[i] = 0;
      }
      
+     // Spectrum is now 0-30
      spectrumValue[i] = spectrumValue[i] * SENSITIVITY / 100;
 
      totalVolume += spectrumValue[i];
    }
 
-   // Average the volume
+   // Average the volume - now a value 0-30
    averageVolume = totalVolume / 7;
 
-   relativeLevel = averageVolume * SENSITIVITY / 100;
-
-   if (relativeLevel > 10)
-   {
-     relativeLevel = 10;
-   }
-   else if (relativeLevel < 0)
-   {
-     relativeLevel = 0;
-   }
+//   relativeLevel = averageVolume;
+//
+//   if (relativeLevel > 10)
+//   {
+//     relativeLevel = 10;
+//   }
+//   else if (relativeLevel < 0)
+//   {
+//     relativeLevel = 0;
+//   }
 }
 
 void updateDisplay()
