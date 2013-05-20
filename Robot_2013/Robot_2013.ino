@@ -3,9 +3,9 @@ Wildstang Lights 2013
 By: Josh Smith and Steve Garward
 */
 
-//Since the cRIO operates at 38.4kHz for its I2C clock, we need to set this manually here.
-//This accesses the low level TWI library files found in /Wire/utility/
-//This needs to be defined before we include as there is a check for a define in twi.c
+// Since the cRIO operates at 38.4kHz for its I2C clock, we need to set this manually here.
+// This accesses the low level TWI library files found in /Wire/utility/
+// This needs to be defined before we include as there is a check for a define in twi.c
 #define TWI_FREQ 38400L
 
 #include <LPD8806.h>
@@ -13,7 +13,7 @@ By: Josh Smith and Steve Garward
 #include <Wire.h>
 #include "definitions.h"
 
-//Uncomment the following line if you want to enable debugging messages over serial
+// Uncomment the following line if you want to enable debugging messages over serial
 //#define WS_DEBUG
 
 // This will use the following pins:
@@ -23,52 +23,34 @@ LPD8806 strip = LPD8806(STRIP_LENGTH);
 
 uint32_t trailPattern[TRAIL_LENGTH + 1];
 
-//This the address to use for the arduino in slave mode when talking to the cRIO
-//This number may differ from the address that the cRIO expects. Sniff the I2C lines
-//to check what address correlates to the actual integer given here
+// This the address to use for the arduino in slave mode when talking to the cRIO.
+// This number may differ from the address that the cRIO expects. Sniff the I2C lines
+// to check what address correlates to the actual integer given here
 static const byte i2cAddress = 82;
 
-//This is the number of the digital IO pin that will be pulled to 5V to signify that
-//the sound board is connected
+// This is the number of the digital IO pin that will be pulled to 5V to signify that
+// the sound board is connected
 static const byte soundBoardCheck = 7;
 
-//This boolean gets set when we have new data that has been verified to be correct following our checks
+// This boolean gets set when we have new data that has been verified to be correct following our checks
 boolean dataChanged = false;
 
-//Create the variables that are used for raw data packets
-//These should not be altered as they are handled internally by the recieveData function
+// Create the variables that are used for raw data packets
+// These should not be altered as they are handled internally by the recieveData function
 unsigned char dataByte1 = 0;
 unsigned char dataByte2 = 0;
 unsigned char dataByte3 = 0;
 unsigned char dataByte4 = 0;
 unsigned char dataByte5 = 0;
 
-//Create the variables that are actually used within the light functions.
-//These are the actual variables that should be compared with but they should not be manually altered
+// Create the variables that are actually used within the light functions.
+// These are the actual variables that should be compared with but they should not be manually altered
 unsigned char commandByte  = 0;
 unsigned char payloadByte1 = 0;
 unsigned char payloadByte2 = 0;
 
-/****************************** Sound Board Code ******************************/
-static const byte PIXELS_PER_SEGMENT = 2; //How many LEDs we want to use for each segment of the "VU meter"
-boolean IS_SOUND_BOARD_IN = false; //Leave this alone as it will be automatically set to true if you are using our sound board
-boolean DUAL_SIDES = true; //Do you want both sides of the LED strip to have the meter or just one?
-float SENSITIVITY = 2.3; //This sets the sensitivity of the mic (increase for quiet environment (3.0 should be upper bound))
-static const byte analogPin = 0; // read from multiplexer using analog input 0
-static const byte strobePin = 3; // strobe is attached to digital pin 3
-static const byte resetPin = 6; // reset is attached to digital pin 6
-
-int baseline[7];
-int spectrumValue[7]; // to hold a2d values
-
-boolean initialise = false;
-int totalVolume = 0;
-int relativeLevel = 0;
-int averageVolume = 0;
-/******************************************************************************/
-
-//This is used for the initial 30 second wait period where our robot would calibrate the gyro and could not be touched.
-//Just switch this to "false" if you do not want this initial wait period.
+// This is used for the initial 30 second wait period where our robot would calibrate the gyro and could not be touched.
+// Just switch this to "false" if you do not want this initial wait period.
 boolean firstRun = true;
 
 byte loops = 0;
@@ -79,92 +61,39 @@ byte loops = 0;
 #define RED_ALLIANCE
 //#define BLUE_ALLIANCE
 
-//1 for red, 2 for blue
+// 1 for red, 2 for blue
 uint8_t alliance = 0;
 
 /******************************************************************************/
 
-//Appendage States
+// Appendage States
 boolean climbOut = false;
 boolean intakeOn = false;
 
 void setup()
 {
-   boolean isSoundBoardIn = false;
-  //This reads the noise off of Analog input 2 and seeds the random() function
-  randomSeed(analogRead(2));
-  //Sound Board Setup
-  byte state = 0;
-  pinMode(soundBoardCheck, INPUT); //Set the soundBoardCheck value as our input pin
-  state = digitalRead(soundBoardCheck); //Get the state (is the board in?)
+   // This reads the noise off of Analog input 2 and seeds the random() function
+   randomSeed(analogRead(2));
+
+   // Start the LED strip
+   strip.begin();
+
+   // Update the strip to ensure that all the LEDs are all off at the beginning
+   strip.show();
   
-  //Although this check is check is reduntant, it allows us to use the soundBoardIn state
-  //elsewhere. This will be moved to a separate function eventually!
-  if (state == 0)
-  {
-    isSoundBoardIn = false;
-  }
-  else if (state == 1)
-  {
-    isSoundBoardIn = true;
-  }
-  
-  if (isSoundBoardIn == true)
-  {
-    
-    pinMode(analogPin, INPUT);
-    pinMode(strobePin, OUTPUT);
-    pinMode(resetPin, OUTPUT);
-    analogReference(DEFAULT);
-
-    digitalWrite(resetPin, LOW);
-    digitalWrite(strobePin, HIGH);
-    
-    //Normally we can't use delay but during setup, it doesn't matter since I2C
-    delay(5000);
-    // Initialise and get a baseline
-    digitalWrite(resetPin, HIGH);
-    digitalWrite(resetPin, LOW);
-
-    for (byte i = 0; i < 7; i++)
-    {
-       baseline[i] = 0;
-    }
-
-    for (byte j = 0; j < 10; j++)
-    {
-       for (byte i = 0; i < 7; i++)
-       {
-          digitalWrite(strobePin, LOW);
-          delayMicroseconds(30);  // to allow the output to settle
-          baseline[i] += analogRead(analogPin);
-          digitalWrite(strobePin, HIGH);
-       }
-    }
-
-    for (byte i = 0; i < 7; i++)
-    {
-       // Average the baseline readings
-       baseline[i] = baseline[i] / 10;
-    }
-  }
-
-  //Start the LED strip
-  strip.begin();
-
-  //Update the strip to ensure that all the LEDs are all off at the beginning
-  strip.show();
-  
-  //Begin I2C communications as a SLAVE. receiveData will be called when new data arrives
-  //We call this last to avoid a nasty bug involving the LED initialization code
-  Wire.begin(i2cAddress);
-  Wire.onReceive(receiveData);
+   // Begin I2C communications as a SLAVE. receiveData() will be called when new data arrives.
+   // We call this last to avoid a nasty bug involving the LED initialization code
+   Wire.begin(i2cAddress);
+   Wire.onReceive(receiveData);
 }
 
 
 
 void loop()
 {
+
+// Since we don't know what alliace we are on yet (due to the bootup time of the cRIO), we use the
+// preprocessor to define what will be run. This will eventually be ported over to a digitalRead with a switch
 #ifdef RED_ALLIANCE   
    if (firstRun == true)
    {
@@ -190,7 +119,9 @@ void loop()
       firstRun = false;
    }
 #endif
-  
+
+   // With the initial bootup run out of the way, we now enter the main chunk of the loop.
+   // The program will sit in the "else" statement until a valid set of bytes are received
    if (
    (commandByte == 0x02) &&
    (payloadByte1 == 0x2F) &&
@@ -226,7 +157,7 @@ void loop()
          intakeOn = true;
          while (dataChanged == false)
          {
-            //Check these values!
+            // Check these values!
             intake(10, 500);
          }
       }
@@ -267,28 +198,33 @@ void loop()
 
 void colorChase(uint32_t c, uint8_t wait)
 {
-  unsigned int i;
-  
-  for (i=0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, 0);
-  } 
-  
-  for (i=0; i < strip.numPixels(); i++) {
+   unsigned int i;
+
+   for (i=0; i < strip.numPixels(); i++)
+   {
+      strip.setPixelColor(i, 0);
+   }
+
+   for (i=0; i < strip.numPixels(); i++)
+   {
       strip.setPixelColor(i, c);
-      if (i == 0) { 
-        strip.setPixelColor(strip.numPixels()-1, 0);
-      } else {
-        strip.setPixelColor(i-1, 0);
+      if (i == 0)
+      { 
+         strip.setPixelColor(strip.numPixels()-1, 0);
+      }
+      else
+      {
+         strip.setPixelColor(i-1, 0);
       }
       strip.show();
       if (true == timedWait(wait))
       {
          return;
       }
-  }
+   }
 }
 
-//  Sets all pixels off to blank the entire strip.
+// Sets all pixels off to blank the entire strip.
 void blankStrip()
 {
    for (unsigned int i = 0; i < strip.numPixels(); i++)
@@ -298,7 +234,7 @@ void blankStrip()
    strip.show();
 }
 
-//  Turns off a specified range of pixels
+// Turns off a specified range of pixels
 void blankRange(int p_start, int p_end)
 {
    for (int i = p_start; i < p_end; i++)
@@ -316,7 +252,7 @@ void testArrows()
   
    for (byte i = 0; i < 3; i++)
    {
-      // pick the color
+      // Pick the color
       switch (i)
       {
          case 0: color = strip.Color(127, 0, 0);
@@ -365,7 +301,7 @@ void testArrows()
    }
 }
 
-//  Runs a rainbow cycle through only the arrows
+// Runs a rainbow cycle through only the arrows
 void arrowRainbow()
 {
    for (int j = 0; j < 384 * 5; j++)
@@ -659,48 +595,48 @@ void colorFill(uint8_t red, uint8_t green, uint8_t blue)
    strip.show();
 }
 
-//Credit to adafruit for this function. This is used in calculating a
-//"color wheel" for the rainbow function
+// Credit to adafruit for this function. This is used in calculating a
+// "color wheel" for the rainbow function
 uint32_t Wheel(uint16_t WheelPos)
 {
   byte r=0, g=0, b=0;
   switch(WheelPos / 128)
   {
     case 0:
-      r = 127 - WheelPos % 128;   //Red down
+      r = 127 - WheelPos % 128;   // Red down
       g = WheelPos % 128;      // Green up
-      b = 0;                  //blue off
+      b = 0;                  // blue off
       break; 
     case 1:
-      g = 127 - WheelPos % 128;  //green down
-      b = WheelPos % 128;      //blue up
-      r = 0;                  //red off
+      g = 127 - WheelPos % 128;  // green down
+      b = WheelPos % 128;      // blue up
+      r = 0;                  // red off
       break; 
     case 2:
-      b = 127 - WheelPos % 128;  //blue down 
-      r = WheelPos % 128;      //red up
-      g = 0;                  //green off
+      b = 127 - WheelPos % 128;  // blue down 
+      r = WheelPos % 128;      // red up
+      g = 0;                  // green off
       break; 
   }
   return(strip.Color(r,g,b));
 }
 
-//This gets called every time we receive new data over the I2C lines
-//See I2Cdesign.md for a complete explanation of our utilization
+// This gets called every time we receive new data over the I2C lines
+// See I2Cdesign.md for a complete explanation of our utilization
 void receiveData(int byteCount)
 {
-  //Check the byte count to ensure that we are recieving a 5 byte packet
+  // Check the byte count to ensure that we are recieving a 5 byte packet
   if (5 == byteCount)
   {
-    //Strip off the last byte and read the value
+    // Strip off the last byte and read the value
     dataByte1 = (0x000000FF & Wire.read()); //Command Byte
     dataByte2 = (0x000000FF & Wire.read()); //Payload Data
     dataByte3 = (0x000000FF & Wire.read()); //Payload Data
     dataByte4 = (0x000000FF & Wire.read()); //Flipped Version of byte 2
     dataByte5 = (0x000000FF & Wire.read()); //Flipped version of byte 3
     
-    //Check if the payload bytes and the flipped counterparts are indeed opposite using XOR
-    //If so, then set the bytes we actually use in loop()
+    // Check if the payload bytes and the flipped counterparts are indeed opposite using XOR
+    // If so, then set the bytes we actually use in loop()
     if ((0xFF == (dataByte2 ^ dataByte4)) &&
         (0xFF == (dataByte3 ^ dataByte5)))
     {
@@ -708,24 +644,24 @@ void receiveData(int byteCount)
 //      cannot be used. Uncomment these three lines and the closing parenthesis if you want to
 //      check if the data is the same.
        
-       //Check to see if the new data is the same as the old data after verifying that it is correct
+       // Check to see if the new data is the same as the old data after verifying that it is correct
 //       if((commandByte != dataByte1) || (payloadByte1 != dataByte2) || (payloadByte2 != dataByte3))
 //       {
-       //Finally set the data to the variables we actually use in loop() 
+       // Finally set the data to the variables we actually use in loop() 
        commandByte = dataByte1;
        payloadByte1 = dataByte2;
        payloadByte2 = dataByte3;
        
-       //Set the flag to say that we have new data
+       // Set the flag to say that we have new data
        dataChanged = true;
 //      }
     }    
   }
-  //This should clear out any packets that are bigger than the required 5 bytes
+  // This should clear out any packets that are bigger than the required 5 bytes
   else if (byteCount > 5) 
   {
-    //Keep on reading the bytes from the buffer until they are gone. They are simply not used and thus
-    //will be thrown away.
+    // Keep on reading the bytes from the buffer until they are gone. They are simply not used and thus
+    // will be thrown away.
     while (Wire.available() > 0)
     {
       Wire.read();
@@ -733,17 +669,17 @@ void receiveData(int byteCount)
   }
 }
 
-//Wait function (Specified Time)
-//This is called when we wait to wait in between events that are occuring in our functions.
-//Much better than using delay() because we can interrupt the parent function when new data is received.
+// Wait function (Specified Time)
+// This is called when we wait to wait in between events that are occuring in our functions.
+// Much better than using delay() because we can interrupt the parent function when new data is received.
 boolean timedWait(unsigned int waitTime)
 {
   unsigned long previousMillis = millis();
   unsigned long currentMillis = millis();
   for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
   {
-     //This may appear to have to effect and the compiler will even throw a warning about it.
-     //However, dataChanged is set even when in this loop by the receiveData() function
+     // This may appear to have to effect and the compiler will even throw a warning about it.
+     // However, dataChanged is set even when in this loop by the receiveData() function
      if(dataChanged == true)
      {
         return true;
@@ -752,26 +688,26 @@ boolean timedWait(unsigned int waitTime)
   return false;
 }
 
-//Wait function (infinite)
-//This is called when we wait to wait in between events that are occuring in our functions.
-//Much better than using delay() because we can interrupt the parent function when new data is received.
-//We sit in this function until dataChanged becomes true.
+// Wait function (infinite)
+// This is called when we wait to wait in between events that are occuring in our functions.
+// Much better than using delay() because we can interrupt the parent function when new data is received.
+// We sit in this function until dataChanged becomes true.
 boolean infiniteWaitFunction()
 {
-  while(dataChanged == false)
-  {
-    //Do nothing. We just sit in here until new data is recieved.
-  }
-  //If we break out of the while loop, then dataChanged must be true so we can return true
-  return true;
+   while(dataChanged == false)
+   {
+      // Do nothing. We just sit in here until new data is recieved.
+   }
+   // If we break out of the while loop, then dataChanged must be true so we can return true
+   return true;
 }
 
-//An experimental function which will scale a given RGB color up and down in a linear manner
+// An experimental function which will scale a given RGB color up and down in a linear manner
 void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
 {
    unsigned int i, q, p = 0, incrementR = 0, incrementG = 0, incrementB = 0;
-   //This array stores both the general increment and the remainder in the format of
-   //[inc(r), inc(g), inc(b), rem(r), rem(g), rem(b)]
+   // This array stores both the general increment and the remainder in the format of
+   // [inc(r), inc(g), inc(b), rem(r), rem(g), rem(b)]
    unsigned int colorIncrement[6];
    
    colorIncrement[0] = 127 / r;
@@ -781,13 +717,13 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
    colorIncrement[4] = 127 % g;
    colorIncrement[5] = 127 % b;
    
-   for(i=0; i <= 127; i++)
+   for (i=0; i <= 127; i++)
    {
       if (i % colorIncrement[0] == 0 && i < r)
       {
          incrementR++;
       }
-      else if((incrementR + colorIncrement[3]) - 127 >= 0 && i < r)
+      else if ((incrementR + colorIncrement[3]) - 127 >= 0 && i < r)
       {
          incrementR++;
       }
@@ -795,7 +731,7 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
       {
          incrementG++;
       }
-      else if((incrementG + colorIncrement[4]) - 127 >= 0 && i < g)
+      else if ((incrementG + colorIncrement[4]) - 127 >= 0 && i < g)
       {
          incrementG++;
       }
@@ -803,11 +739,11 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
       {
          incrementB++;
       }
-      else if((incrementB + colorIncrement[5]) - 127 >= 0 && i < b)
+      else if ((incrementB + colorIncrement[5]) - 127 >= 0 && i < b)
       {
          incrementB++;
       }
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(incrementR, incrementG, incrementB));
       }
@@ -818,13 +754,13 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
          break;
       }
    }
-   for(q=127; q >= 0; q--)
+   for (q=127; q >= 0; q--)
    {
       if (q % colorIncrement[0] == 0 && q > 0)
       {
          incrementR--;
       }
-      else if((incrementR + colorIncrement[3]) - 127 >= 0 && q > 0)
+      else if ((incrementR + colorIncrement[3]) - 127 >= 0 && q > 0)
       {
          incrementR--;
       }
@@ -832,7 +768,7 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
       {
          incrementG--;
       }
-      else if((incrementG + colorIncrement[4]) - 127 >= 0 && q > 0)
+      else if ((incrementG + colorIncrement[4]) - 127 >= 0 && q > 0)
       {
          incrementG--;
       }
@@ -840,11 +776,11 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
       {
          incrementB--;
       }
-      else if((incrementB + colorIncrement[5]) - 127 >= 0 && q > 0)
+      else if ((incrementB + colorIncrement[5]) - 127 >= 0 && q > 0)
       {
          incrementB--;
       }
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(incrementR, incrementG, incrementB));
       }
@@ -857,13 +793,13 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
    }
 }
 
-//this is a simple fader that goes on and off (RED)
+// This is a simple fader that scales on and off (RED)
 void faderRed(unsigned int wait)
 {
    unsigned int i, p, q;
-   for(i=0; i <= 120; i+=5)
+   for (i=0; i <= 120; i+=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(i,0,0));
       }
@@ -874,9 +810,9 @@ void faderRed(unsigned int wait)
          break;
       }
    }
-   for(q=i; q >= 0; q-=5)
+   for (q=i; q >= 0; q-=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(q,0,0));
       }
@@ -889,13 +825,13 @@ void faderRed(unsigned int wait)
    }
 }
 
-//this is a simple fader that goes on and off (GREEN)
+// This is a simple fader that scales on and off (GREEN)
 void faderGreen(unsigned int wait)
 {
    unsigned int i, p, q;
-   for(i=0; i <= 120; i+=5)
+   for (i=0; i <= 120; i+=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(0,i,0));
       }
@@ -906,9 +842,9 @@ void faderGreen(unsigned int wait)
          break;
       }
    }
-   for(q=i; q >= 0; q-=5)
+   for (q=i; q >= 0; q-=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(0,q,0));
       }
@@ -921,13 +857,13 @@ void faderGreen(unsigned int wait)
    }
 }
 
-//this is a simple fader that goes on and off (BLUE)
+// This is a simple fader that scales on and off (BLUE)
 void faderBlue (unsigned int wait)
 {
    unsigned int i, p, q;
-   for(i=0; i <= 120; i+=5)
+   for (i=0; i <= 120; i+=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(0,0,i));
       }
@@ -937,9 +873,9 @@ void faderBlue (unsigned int wait)
          return;
       }
    }
-   for(q=i; q >= 0; q-=5)
+   for (q=i; q >= 0; q-=5)
    {
-      for(p=0; p < strip.numPixels(); p++)
+      for (p=0; p < strip.numPixels(); p++)
       {
          strip.setPixelColor(p, strip.Color(0,0,q));
       }
@@ -952,7 +888,7 @@ void faderBlue (unsigned int wait)
    }
 }
 
-//Cycle through a rainbow of colors throughout the whole strip
+// Cycle through a rainbow of colors throughout the whole strip
 void rainbowWheel(unsigned int wait)
 {
   uint16_t i, j;
@@ -976,7 +912,7 @@ void rainbowWheel(unsigned int wait)
   }
 }
 
-//Send a small block of lights down the strip and optionally bounce them back
+// Send a small block of lights down the strip and optionally bounce them back
 void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
 {
    unsigned int h = 0, i = 0;
@@ -986,12 +922,12 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
 
    // Erase the strip initially to be sure that we do not leave
    // LEDs on from previous functions
-   for(h=0; h < strip.numPixels(); h++)
+   for (h=0; h < strip.numPixels(); h++)
    {
       strip.setPixelColor(h, 0);
    }
 
-   for(i=0; i<((strip.numPixels()-1) * 8); i++)
+   for (i=0; i<((strip.numPixels()-1) * 8); i++)
    {
       // Draw 5 pixels centered on pos.  setPixelColor() will clip
       // any pixels off the ends of the strip, no worries there.
@@ -1004,7 +940,7 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
       strip.setPixelColor(pos + 2, strip.Color(r/4, g/4, b/4));
 
       strip.show();
-      //Wait function with interrupt
+      // Wait function with interrupt
       if (true == timedWait(wait))
       {
          break;
@@ -1013,40 +949,41 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
       // If we wanted to be sneaky we could erase just the tail end
       // pixel, but it's much easier just to erase the whole thing
       // and draw a new one next time.
-      for(j=-2; j<= 2; j++)
+      for (j=-2; j<= 2; j++)
       {
          strip.setPixelColor(pos+j, strip.Color(0,0,0));
       }
       // Bounce off ends of strip
       pos += dir;
-      if(pos < 0)
+      if (pos < 0)
       {
          pos = 1;
          dir = -dir;
       }
-      else if(pos >= strip.numPixels())
+      else if (pos >= strip.numPixels())
       {
-         if(bounce == true)
-      {
-         pos = strip.numPixels() - 2;
-         dir = -dir;
+         if (bounce == true)
+         {
+            pos = strip.numPixels() - 2;
+            dir = -dir;
+         }
+         else
+         {
+            pos = 0;
+         } 
       }
-      else
-      {
-         pos = 0;
-      } 
-    }
-  }
+   }
 }
 
-//this blinks all the LEDs to the rgb values passed in. Time can be changed for on and off with onWait and offWait when calling.
+// This blinks all the LEDs to the rgb values passed in. Time can be changed for on and off with onWait and offWait when calling.
 void colorBlink(uint32_t onWait, uint32_t offWait, uint8_t r, uint8_t g, uint8_t b)
 {
   uint16_t i;
-  //First Pulse
-  for(i=0; i < strip.numPixels(); i++)
+  // First Pulse
+  for (i=0; i < strip.numPixels(); i++)
   {
-    strip.setPixelColor(i, strip.Color(r,g,b));
+
+     strip.setPixelColor(i, strip.Color(r,g,b));
   }
   strip.show();
   
@@ -1055,20 +992,20 @@ void colorBlink(uint32_t onWait, uint32_t offWait, uint8_t r, uint8_t g, uint8_t
      return;
   }
 
-  for(i=0; i < strip.numPixels(); i++)
+  for (i=0; i < strip.numPixels(); i++)
   {
-    strip.setPixelColor(i, 0);
+     strip.setPixelColor(i, 0);
   }
   strip.show();
-  //Wait function with interrupt
+  // Wait function with interrupt
   if (true == timedWait(offWait))
   {
      return;  
   }
 }
 
-//This is a unique function which is used only when the robot first boots up. It allows for us to easily see
-//when 8 seconds has pasts 
+// This is a unique function which is used only when the robot first boots up. It allows for us to easily see
+// when 8 seconds has pasts 
 void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int green, int blue)
 {
    uint16_t pixel, h;
@@ -1077,7 +1014,7 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
    // LEDs on from previous functions
    for(h=0; h < strip.numPixels(); h++)
    {
-     strip.setPixelColor(h, 0);
+      strip.setPixelColor(h, 0);
    }
    strip.show();
    if (true == timedWait(2000))
@@ -1163,13 +1100,13 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
    {
       return;
    }
-   for(uint8_t i = 0; i < flashes; i++)
+   for (uint8_t i = 0; i < flashes; i++)
    {
-      for(q = 0; q < 14; q++)
+      for (q = 0; q < 14; q++)
       {
          strip.setPixelColor(q, strip.Color(red, green, blue));
       }
-      for(q = 83; q > 69; q--)
+      for (q = 83; q > 69; q--)
       {
          strip.setPixelColor(q, strip.Color(red, green, blue));
       }
@@ -1182,11 +1119,11 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
       {
          return;
       }
-      for(q = 0; q < 14; q++)
+      for (q = 0; q < 14; q++)
       {
          strip.setPixelColor(q, 0);
       }
-      for(q = 83; q > 69; q--)
+      for (q = 83; q > 69; q--)
       {
          strip.setPixelColor(q, 0);
       }
@@ -1202,21 +1139,21 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
    }
 }
 
-//Simply alternates the pixels that are lit up over a given wait period
+// Simply alternates the pixels that are lit up over a given wait period
 void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2, byte blue2, unsigned int wait1, unsigned int wait2, uint16_t times)
 {
    uint16_t h, i;
-   for(h=0; h < strip.numPixels(); h++)
+   for (h=0; h < strip.numPixels(); h++)
    {
-     strip.setPixelColor(h, 0);
+      strip.setPixelColor(h, 0);
    }
-   for(i=0; i < times; i++)
+   for (i=0; i < times; i++)
    {
-      for(h=0; h < strip.numPixels(); h++)
+      for (h=0; h < strip.numPixels(); h++)
       {
         strip.setPixelColor(h, 0);
       }
-      for(h=0; h < strip.numPixels(); h=h+2)
+      for (h=0; h < strip.numPixels(); h=h+2)
       {
         strip.setPixelColor(h, strip.Color(red1, green1, blue1));
       }
@@ -1225,11 +1162,11 @@ void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2
       {
          return;
       }
-      for(h=0; h < strip.numPixels(); h++)
+      for (h=0; h < strip.numPixels(); h++)
       {
         strip.setPixelColor(h, 0);
       }
-      for(h=1; h < strip.numPixels(); h=h+2)
+      for (h=1; h < strip.numPixels(); h=h+2)
       {
         strip.setPixelColor(h, strip.Color(red2, green2, blue2));
       }
@@ -1241,8 +1178,8 @@ void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2
    }
 }
 
-//This is called when we initially receive what alliance we are on along with what station we are
-//The robot will fade the number of times which corresponds to the station
+// This is called when we initially receive what alliance we are on along with what station we are
+// The robot will fade the number of times which corresponds to the station
 void allianceSelection(uint8_t times)
 {
    byte p, q = 0;
@@ -1298,23 +1235,23 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
    uint16_t pixel, h;
    uint8_t q;
    
-   if(climbOut == false)
+   if (climbOut == false)
    {
       climbOut = true; 
       // Erase the strip initially to be sure that we do not leave
       // LEDs on from previous functions
-      for(h=0; h < strip.numPixels(); h++)
+      for (h=0; h < strip.numPixels(); h++)
       {
         strip.setPixelColor(h, 0);
       }
       strip.show();
-      for(uint8_t i=0; i < 14; i++)
+      for (uint8_t i=0; i < 14; i++)
       {
          strip.setPixelColor(i, allianceColor());
          strip.setPixelColor(STRIP_LENGTH - i, allianceColor());
          
          //Set the arrows at the periodic intervals
-         if(i==1 || i==5 || i==9 || i==13)
+         if (i==1 || i==5 || i==9 || i==13)
          {
             switch (i)
             {
@@ -1358,13 +1295,13 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
    else
    {
       climbOut = false;
-      for(uint8_t i=13; i > 0; i--)
+      for (uint8_t i=13; i > 0; i--)
       {
          strip.setPixelColor(i, strip.Color(127, 0, 127));
          strip.setPixelColor(STRIP_LENGTH - i, strip.Color(127, 0, 127));
          
          //Set the arrows at the periodic intervals
-         if(i==1 || i==5 || i==9 || i==13)
+         if (i==1 || i==5 || i==9 || i==13)
          {
             switch (i)
             {
@@ -1404,13 +1341,13 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
       {
          return;
       }
-      for(uint8_t i = 0; i < flashes; i++)
+      for (uint8_t i = 0; i < flashes; i++)
       {
-         for(q = 0; q < 14; q++)
+         for (q = 0; q < 14; q++)
          {
             strip.setPixelColor(q, allianceColor());
          }
-         for(q = 83; q > 69; q--)
+         for (q = 83; q > 69; q--)
          {
             strip.setPixelColor(q, allianceColor());
          }
@@ -1423,11 +1360,11 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
          {
             return;
          }
-         for(q = 0; q < 14; q++)
+         for (q = 0; q < 14; q++)
          {
             strip.setPixelColor(q, 0);
          }
-         for(q = 83; q > 69; q--)
+         for (q = 83; q > 69; q--)
          {
             strip.setPixelColor(q, 0);
          }
@@ -1457,7 +1394,7 @@ void intake(unsigned int feedSpeed, unsigned int waitAfter)
    
 //   blankRange(SHOOT_TRAIL_START, STRIP_LENGTH - SHOOT_TRAIL_START);
 
-   for(h=0; h < STRIP_LENGTH; h++)
+   for (h=0; h < STRIP_LENGTH; h++)
    {
       strip.setPixelColor(h, 0);
    }
@@ -1514,14 +1451,14 @@ void intake(unsigned int feedSpeed, unsigned int waitAfter)
          return;
       }
    }
-//   //Clean out the strip after a shot
+//   // Clean out the strip after a shot
 //   blankRange(SHOOT_TRAIL_START, STRIP_LENGTH - SHOOT_TRAIL_START);
 //   setArrow1Colour(0, 0, 0);
 //   setArrow2Colour(0, 0, 0);
 //   setArrow3Colour(0, 0, 0);
 //   setArrow4Colour(0, 0, 0);
 
-   for(h=0; h < STRIP_LENGTH; h++)
+   for (h=0; h < STRIP_LENGTH; h++)
    {
       strip.setPixelColor(h, 0);
    }
