@@ -46,9 +46,9 @@ MSGEQ7::MSGEQ7(uint8_t _analogPin, uint8_t _strobePin, uint8_t _resetPin, bool _
 
 void MSGEQ7::read()
 {
-   //We first need to read the pot value and map it to between 0 and 30 because our realistic max is 3.0.
-   //Since map only returns whole numbers, we then divide by 10 to get our true max of 3.0.
-   //SENSITIVITY = map(analogRead(MIC_SENSITIVITY), 0, 1023, 0, 100) / 10; //THIS HAS BEEN CHANGED TO MAX OF 10.0!
+   // We first need to read the pot value and map it to between 0 and 30 because our realistic max is 3.0.
+   // Since map only returns whole numbers, we then divide by 10 to get our true max of 3.0.
+   // sensitivity = map(analogRead(MIC_SENSITIVITY), 0, 1023, 0, 100) / 10; //THIS HAS BEEN CHANGED TO MAX OF 10.0!
    
    digitalWrite(resetPin, HIGH); 
    digitalWrite(resetPin, LOW);
@@ -57,7 +57,7 @@ void MSGEQ7::read()
    for (uint8_t i=0; i < 7; i++)
    {
      digitalWrite(strobePin, LOW);
-     delayMicroseconds(30);  // to allow the output to settle
+     delayMicroseconds(30);  // Wait to allow the output to settle
      spectrumValue[i] = analogRead(analogPin) - baseline[i];
      digitalWrite(strobePin, HIGH);
      if (spectrumValue[i] < 0)
@@ -73,4 +73,16 @@ void MSGEQ7::read()
 
    // Average the volume - now a value 0-20
    averageVolume = totalVolume / 7;
+}
+
+// Returns the value of a particular frequency from the array
+int MSGEQ7::returnValue(uint8_t i)
+{
+   return spectrumValue[i];
+}
+
+// Returns the total calculated volume
+uint8_t MSGEQ7::returnVolume()
+{
+   return averageVolume;
 }

@@ -21,7 +21,7 @@ By: Josh Smith and Steve Garward
 // Clock (SCL): 13
 LPD8806 strip = LPD8806(STRIP_LENGTH);
 
-uint32_t trailPattern[TRAIL_LENGTH + 1];
+unsigned long trailPattern[TRAIL_LENGTH + 1];
 
 // This the address to use for the arduino in slave mode when talking to the cRIO.
 // This number may differ from the address that the cRIO expects. Sniff the I2C lines
@@ -53,8 +53,6 @@ unsigned char payloadByte2 = 0;
 // Just switch this to "false" if you do not want this initial wait period.
 boolean firstRun = true;
 
-byte loops = 0;
-
 /****************************** PICK YOUR ALLIANCE ******************************/
 /*                             (uncomment alliance)                             */
 
@@ -62,7 +60,7 @@ byte loops = 0;
 //#define BLUE_ALLIANCE
 
 // 1 for red, 2 for blue
-uint8_t alliance = 0;
+byte alliance = 0;
 
 /******************************************************************************/
 
@@ -99,7 +97,7 @@ void loop()
    {
       gyroCalibrate(5, 50, 120, 127, 0, 0);
       initShootingTrailPattern(127, 0, 0);
-      for(loops = 0; loops < 20; loops++)
+      for(byte loops = 0; loops < 20; loops++)
       {
          faderRed(30);
       }
@@ -112,7 +110,7 @@ void loop()
    {
       gyroCalibrate(5, 50, 120, 0, 0, 127);
       initShootingTrailPattern(0, 0, 127);
-      for(loops = 0; loops < 20; loops++)
+      for(byte loops = 0; loops < 20; loops++)
       {
          faderBlue(30);
       }
@@ -196,7 +194,7 @@ void loop()
    }
 }
 
-void colorChase(uint32_t c, uint8_t wait)
+void colorChase(unsigned long c, byte wait)
 {
    unsigned int i;
 
@@ -235,9 +233,9 @@ void blankStrip()
 }
 
 // Turns off a specified range of pixels
-void blankRange(int p_start, int p_end)
+void blankRange(unsigned int p_start, unsigned int p_end)
 {
-   for (int i = p_start; i < p_end; i++)
+   for (unsigned int i = p_start; i < p_end; i++)
    {
       strip.setPixelColor(i, 0);
    }
@@ -246,7 +244,7 @@ void blankRange(int p_start, int p_end)
 
 void testArrows()
 {
-   uint32_t color = 0;
+   unsigned long color = 0;
  
    blankStrip();
   
@@ -320,67 +318,67 @@ void arrowRainbow()
 
 }
 
-void setArrow1Colour(uint8_t red, uint8_t green, uint8_t blue)
+void setArrow1Colour(byte red, byte green, byte blue)
 {
    setArrow1Colour(strip.Color(red, green, blue));
 }
 
-void setArrow2Colour(uint8_t red, uint8_t green, uint8_t blue)
+void setArrow2Colour(byte red, byte green, byte blue)
 {
    setArrow2Colour(strip.Color(red, green, blue));
 }
 
-void setArrow3Colour(uint8_t red, uint8_t green, uint8_t blue)
+void setArrow3Colour(byte red, byte green, byte blue)
 {
    setArrow3Colour(strip.Color(red, green, blue));
 }
 
-void setArrow4Colour(uint8_t red, uint8_t green, uint8_t blue)
+void setArrow4Colour(byte red, byte green, byte blue)
 {
    setArrow4Colour(strip.Color(red, green, blue));
 }
 
-void setArrow1Colour(uint32_t color)
+void setArrow1Colour(unsigned long color)
 {
-   for (uint8_t i = 0; i < ARROW_LENGTH; i++)
+   for (byte i = 0; i < ARROW_LENGTH; i++)
    {
       strip.setPixelColor(ARROW_1_START + i, color);
    }
 }
 
-void setArrow2Colour(uint32_t color)
+void setArrow2Colour(unsigned long color)
 {
-   for (uint8_t i = 0; i < ARROW_LENGTH; i++)
+   for (byte i = 0; i < ARROW_LENGTH; i++)
    {
       strip.setPixelColor(ARROW_2_START + i, color);
    }
 }
 
-void setArrow3Colour(uint32_t color)
+void setArrow3Colour(unsigned long color)
 {
-   for (uint8_t i = 0; i < ARROW_LENGTH; i++)
+   for (byte i = 0; i < ARROW_LENGTH; i++)
    {
       strip.setPixelColor(ARROW_3_START + i, color);
    }
 }
 
-void setArrow4Colour(uint32_t color)
+void setArrow4Colour(unsigned long color)
 {
-   for (uint8_t i = 0; i < ARROW_LENGTH; i++)
+   for (byte i = 0; i < ARROW_LENGTH; i++)
    {
       strip.setPixelColor(ARROW_4_START + i, color);
    }
 }
 
-void initShootingTrailPattern(uint8_t red, uint8_t green, uint8_t blue)
+void initShootingTrailPattern(byte red, byte green, byte blue)
 {
-   uint8_t dimRed = red / TRAIL_LENGTH;
-   uint8_t dimGreen = green / TRAIL_LENGTH;
-   uint8_t dimBlue = blue / TRAIL_LENGTH;
+   byte dimRed = red / TRAIL_LENGTH;
+   byte dimGreen = green / TRAIL_LENGTH;
+   byte dimBlue = blue / TRAIL_LENGTH;
 
    // Set up the trail pattern
    trailPattern[0] = 0;
-   for (int i = 1; i <= TRAIL_LENGTH; i++)
+   for (unsigned int i = 1; i <= TRAIL_LENGTH; i++)
    {
       int index = TRAIL_LENGTH + 1 - i;
       trailPattern[index] = strip.Color(max(red - (dimRed * (i - 1)), 0), max(green - (dimGreen * (i - 1)), 0), max(blue - (dimBlue * (i - 1)), 0));
@@ -390,7 +388,8 @@ void initShootingTrailPattern(uint8_t red, uint8_t green, uint8_t blue)
 
 void shoot(unsigned int shotSpeed, unsigned int waitAfter)
 {
-   int currentPixel, h, lastStart = 0;
+   int currentPixel, lastStart = 0;
+   unsigned int h;
    
    for(h=0; h < STRIP_LENGTH; h++)
    {
@@ -398,11 +397,11 @@ void shoot(unsigned int shotSpeed, unsigned int waitAfter)
    }
 
    // Fill in colours
-   for (int i = SHOOT_TRAIL_START; i <= SHOOT_TRAIL_END; i++)
+   for (unsigned int i = SHOOT_TRAIL_START; i <= SHOOT_TRAIL_END; i++)
    {
       lastStart = i - TRAIL_LENGTH;
 
-      for (int j = 0; j <= TRAIL_LENGTH; j++)
+      for (unsigned int j = 0; j <= TRAIL_LENGTH; j++)
       {
          currentPixel = lastStart + j;
          
@@ -457,12 +456,12 @@ void shoot(unsigned int shotSpeed, unsigned int waitAfter)
 }
 
 
-void twinkle(uint8_t times, uint8_t numLit)
+void twinkle(byte times, byte numLit)
 {
    int pixels[STRIP_LENGTH] = {0};
-   for (uint8_t i = 0; i < times; i++)
+   for (byte i = 0; i < times; i++)
    {
-      for (uint8_t i = 0; i < numLit; i++)
+      for (byte i = 0; i < numLit; i++)
       {
          pixels[random(STRIP_LENGTH)] = 1;
       }
@@ -486,13 +485,13 @@ void twinkle(uint8_t times, uint8_t numLit)
    }
 }
 
-void twinkle(uint8_t times, uint8_t numLit, uint8_t bgred, uint8_t bggreen, uint8_t bgblue, uint8_t fgred, uint8_t fggreen, uint8_t fgblue, unsigned int wait)
+void twinkle(byte times, byte numLit, byte bgred, byte bggreen, byte bgblue, byte fgred, byte fggreen, byte fgblue, unsigned int wait)
 {
    int pixels[STRIP_LENGTH] = {0};
    
-   for (uint8_t i = 0; i < times; i++)
+   for (byte i = 0; i < times; i++)
    {
-      for (uint8_t i = 0; i < numLit; i++)
+      for (byte i = 0; i < numLit; i++)
       {
          pixels[random(STRIP_LENGTH)] = 1;
       }
@@ -517,7 +516,7 @@ void twinkle(uint8_t times, uint8_t numLit, uint8_t bgred, uint8_t bggreen, uint
 }
 
 
-void colorFlowDownShimmer(uint8_t red, uint8_t green, uint8_t blue)
+void colorFlowDownShimmer(byte red, byte green, byte blue)
 {
    blankStrip();
    
@@ -565,7 +564,7 @@ void colorFlowDownShimmer(uint8_t red, uint8_t green, uint8_t blue)
 }
    
 
-void colorFlowDown(uint8_t red, uint8_t green, uint8_t blue)
+void colorFlowDown(byte red, byte green, byte blue)
 {
    blankStrip();
  
@@ -585,9 +584,9 @@ void colorFlowDown(uint8_t red, uint8_t green, uint8_t blue)
 }
    
 
-void colorFill(uint8_t red, uint8_t green, uint8_t blue)
+void colorFill(byte red, byte green, byte blue)
 {
-   for (int i = 0; i < STRIP_LENGTH; i++)
+   for (unsigned int i = 0; i < STRIP_LENGTH; i++)
    {
       strip.setPixelColor(i, strip.Color(red, green, blue));
    }
@@ -597,7 +596,7 @@ void colorFill(uint8_t red, uint8_t green, uint8_t blue)
 
 // Credit to adafruit for this function. This is used in calculating a
 // "color wheel" for the rainbow function
-uint32_t Wheel(uint16_t WheelPos)
+unsigned long Wheel(unsigned int WheelPos)
 {
   byte r=0, g=0, b=0;
   switch(WheelPos / 128)
@@ -605,17 +604,17 @@ uint32_t Wheel(uint16_t WheelPos)
     case 0:
       r = 127 - WheelPos % 128;   // Red down
       g = WheelPos % 128;      // Green up
-      b = 0;                  // blue off
+      b = 0;                  // Blue off
       break; 
     case 1:
-      g = 127 - WheelPos % 128;  // green down
-      b = WheelPos % 128;      // blue up
-      r = 0;                  // red off
+      g = 127 - WheelPos % 128;  // Green down
+      b = WheelPos % 128;      // Blue up
+      r = 0;                  // Red off
       break; 
     case 2:
-      b = 127 - WheelPos % 128;  // blue down 
-      r = WheelPos % 128;      // red up
-      g = 0;                  // green off
+      b = 127 - WheelPos % 128;  // Blue down 
+      r = WheelPos % 128;      // Red up
+      g = 0;                  // Green off
       break; 
   }
   return(strip.Color(r,g,b));
@@ -674,18 +673,18 @@ void receiveData(int byteCount)
 // Much better than using delay() because we can interrupt the parent function when new data is received.
 boolean timedWait(unsigned int waitTime)
 {
-  unsigned long previousMillis = millis();
-  unsigned long currentMillis = millis();
-  for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
-  {
-     // This may appear to have to effect and the compiler will even throw a warning about it.
-     // However, dataChanged is set even when in this loop by the receiveData() function
-     if(dataChanged == true)
-     {
-        return true;
-     }
-  }
-  return false;
+   unsigned long previousMillis = millis();
+   unsigned long currentMillis = millis();
+   for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
+   {
+      // This may appear to have to effect and the compiler will even throw a warning about it.
+      // However, dataChanged is set even when in this loop by the receiveData() function
+      if(dataChanged == true)
+      {
+         return true;
+      }
+   }
+   return false;
 }
 
 // Wait function (infinite)
@@ -703,11 +702,12 @@ boolean infiniteWaitFunction()
 }
 
 // An experimental function which will scale a given RGB color up and down in a linear manner
-void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
+void faderRGB(byte r, byte g, byte b, unsigned int wait)
 {
-   unsigned int i, q, p = 0, incrementR = 0, incrementG = 0, incrementB = 0;
+   byte i = 0;
+   unsigned int q = 0, p = 0, incrementR = 0, incrementG = 0, incrementB = 0;
    // This array stores both the general increment and the remainder in the format of
-   // [inc(r), inc(g), inc(b), rem(r), rem(g), rem(b)]
+   // [inc (r), inc (g), inc (b), rem (r), rem (g), rem (b)]
    unsigned int colorIncrement[6];
    
    colorIncrement[0] = 127 / r;
@@ -796,7 +796,8 @@ void faderRGB(uint8_t r, uint8_t g, uint8_t b, unsigned int wait)
 // This is a simple fader that scales on and off (RED)
 void faderRed(unsigned int wait)
 {
-   unsigned int i, p, q;
+   byte i = 0;
+   unsigned int p, q;
    for (i=0; i <= 120; i+=5)
    {
       for (p=0; p < strip.numPixels(); p++)
@@ -828,7 +829,8 @@ void faderRed(unsigned int wait)
 // This is a simple fader that scales on and off (GREEN)
 void faderGreen(unsigned int wait)
 {
-   unsigned int i, p, q;
+   byte i = 0;
+   unsigned int p, q;
    for (i=0; i <= 120; i+=5)
    {
       for (p=0; p < strip.numPixels(); p++)
@@ -891,7 +893,7 @@ void faderBlue (unsigned int wait)
 // Cycle through a rainbow of colors throughout the whole strip
 void rainbowWheel(unsigned int wait)
 {
-  uint16_t i, j;
+  unsigned int i, j;
 
   for (j=0; j < 384 * 5; j++)
   {     // 5 cycles of all 384 colors in the wheel
@@ -913,10 +915,10 @@ void rainbowWheel(unsigned int wait)
 }
 
 // Send a small block of lights down the strip and optionally bounce them back
-void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
+void scanner(byte r, byte g, byte b, unsigned int wait, boolean bounce)
 {
    unsigned int h = 0, i = 0;
-   int j = 0;
+   char j = 0;
    int pos = 0;
    int dir = 1;
 
@@ -976,9 +978,9 @@ void scanner(uint8_t r, uint8_t g, uint8_t b, unsigned int wait, boolean bounce)
 }
 
 // This blinks all the LEDs to the rgb values passed in. Time can be changed for on and off with onWait and offWait when calling.
-void colorBlink(uint32_t onWait, uint32_t offWait, uint8_t r, uint8_t g, uint8_t b)
+void colorBlink(unsigned long onWait, unsigned long offWait, byte r, byte g, byte b)
 {
-  uint16_t i;
+  unsigned int i;
   // First Pulse
   for (i=0; i < strip.numPixels(); i++)
   {
@@ -1005,11 +1007,11 @@ void colorBlink(uint32_t onWait, uint32_t offWait, uint8_t r, uint8_t g, uint8_t
 }
 
 // This is a unique function which is used only when the robot first boots up. It allows for us to easily see
-// when 8 seconds has pasts 
-void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int green, int blue)
+// when 8 seconds has passed
+void gyroCalibrate(byte flashes, int blinkTime, int blinkTime2, byte red, byte green, byte blue)
 {
-   uint16_t pixel, h;
-   uint8_t q;
+   unsigned int pixel, h;
+   byte q;
    // Erase the strip initially to be sure that we do not leave
    // LEDs on from previous functions
    for(h=0; h < strip.numPixels(); h++)
@@ -1100,7 +1102,7 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
    {
       return;
    }
-   for (uint8_t i = 0; i < flashes; i++)
+   for (byte i = 0; i < flashes; i++)
    {
       for (q = 0; q < 14; q++)
       {
@@ -1140,9 +1142,9 @@ void gyroCalibrate(uint8_t flashes, int blinkTime, int blinkTime2, int red, int 
 }
 
 // Simply alternates the pixels that are lit up over a given wait period
-void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2, byte blue2, unsigned int wait1, unsigned int wait2, uint16_t times)
+void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2, byte blue2, unsigned int wait1, unsigned int wait2, unsigned int times)
 {
-   uint16_t h, i;
+   unsigned int h, i;
    for (h=0; h < strip.numPixels(); h++)
    {
       strip.setPixelColor(h, 0);
@@ -1180,7 +1182,7 @@ void alternatingColor(byte red1, byte green1, byte blue1, byte red2, byte green2
 
 // This is called when we initially receive what alliance we are on along with what station we are
 // The robot will fade the number of times which corresponds to the station
-void allianceSelection(uint8_t times)
+void allianceSelection(byte times)
 {
    byte p, q = 0;
    if (payloadByte2 > 3)
@@ -1232,8 +1234,8 @@ void autonomous()
 
 void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int flashes, unsigned int blinkTime, unsigned int blinkTime2, unsigned int holdTime)
 {
-   uint16_t pixel, h;
-   uint8_t q;
+   unsigned int pixel, h;
+   byte q;
    
    if (climbOut == false)
    {
@@ -1245,12 +1247,12 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
         strip.setPixelColor(h, 0);
       }
       strip.show();
-      for (uint8_t i=0; i < 14; i++)
+      for (byte i=0; i < 14; i++)
       {
          strip.setPixelColor(i, allianceColor());
          strip.setPixelColor(STRIP_LENGTH - i, allianceColor());
          
-         //Set the arrows at the periodic intervals
+         // Set the arrows at the periodic intervals
          if (i==1 || i==5 || i==9 || i==13)
          {
             switch (i)
@@ -1295,7 +1297,7 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
    else
    {
       climbOut = false;
-      for (uint8_t i=13; i > 0; i--)
+      for (byte i=13; i > 0; i--)
       {
          strip.setPixelColor(i, strip.Color(127, 0, 127));
          strip.setPixelColor(STRIP_LENGTH - i, strip.Color(127, 0, 127));
@@ -1341,7 +1343,7 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
       {
          return;
       }
-      for (uint8_t i = 0; i < flashes; i++)
+      for (byte i = 0; i < flashes; i++)
       {
          for (q = 0; q < 14; q++)
          {
@@ -1386,10 +1388,11 @@ void climb(unsigned int extensionTime, unsigned int retractionTime, unsigned int
    }
 }
 
-/******************************************* THIS NEED WORK!!!!! ***************************************/
+/******************************************* THIS NEEDS WORK!!!!! ***************************************/
 void intake(unsigned int feedSpeed, unsigned int waitAfter)
 {
-   int currentPixel, h;
+   int currentPixel;
+   unsigned int h;
    
    
 //   blankRange(SHOOT_TRAIL_START, STRIP_LENGTH - SHOOT_TRAIL_START);
@@ -1412,7 +1415,7 @@ void intake(unsigned int feedSpeed, unsigned int waitAfter)
    {
       lastStart = i + TRAIL_LENGTH;
 
-      for (int j = 0; j <= TRAIL_LENGTH; j++)
+      for (unsigned int j = 0; j <= TRAIL_LENGTH; j++)
       {
          currentPixel = lastStart - j;
          
@@ -1477,7 +1480,7 @@ void setDrivingState()
    payloadByte2 = 0x45;
 }
 
-uint32_t allianceColor()
+unsigned long allianceColor()
 {
    if (alliance == 1)
    {
