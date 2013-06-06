@@ -9,6 +9,8 @@ MSGEQ7::MSGEQ7(uint8_t _analogPin, uint8_t _strobePin, uint8_t _resetPin, bool _
    resetPin = _resetPin;
    dualSides = _dualSides;
    pixelsPerSegment = _pixelsPerSegment;
+
+   // Setup the pins that are being used
    pinMode(analogPin, INPUT);
    pinMode(strobePin, OUTPUT);
    pinMode(resetPin, OUTPUT);

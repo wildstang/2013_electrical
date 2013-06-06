@@ -16,7 +16,7 @@ By: Josh Smith and Steve Garward
 // Uncomment the following line if you want to enable debugging messages over serial
 //#define WS_DEBUG
 
-// This will use the following pins:
+// This will use the following pins (SPI):
 // Data (SDA):  11
 // Clock (SCL): 13
 LPD8806 strip = LPD8806(STRIP_LENGTH);
@@ -27,10 +27,6 @@ unsigned long trailPattern[TRAIL_LENGTH + 1];
 // This number may differ from the address that the cRIO expects. Sniff the I2C lines
 // to check what address correlates to the actual integer given here
 static const byte i2cAddress = 82;
-
-// This is the number of the digital IO pin that will be pulled to 5V to signify that
-// the sound board is connected
-static const byte soundBoardCheck = 7;
 
 // This boolean gets set when we have new data that has been verified to be correct following our checks
 boolean dataChanged = false;
@@ -303,7 +299,8 @@ void testArrows()
 void arrowRainbow()
 {
    for (int j = 0; j < 384 * 5; j++)
-   {     // 5 cycles of all 384 colors in the wheel
+   {     
+      // 5 cycles of all 384 colors in the wheel
       setArrow1Colour(Wheel( ((0 * 384 / ARROW_STRIP_LENGTH) + j) % 384) );
       setArrow2Colour(Wheel( ((1 * 384 / ARROW_STRIP_LENGTH) + j) % 384) );
       setArrow3Colour(Wheel( ((2 * 384 / ARROW_STRIP_LENGTH) + j) % 384) );
@@ -441,7 +438,7 @@ void shoot(unsigned int shotSpeed, unsigned int waitAfter)
       }
    }
    
-// Clean out the strip after a shot
+   // Clean out the strip after a shot
    for(h=0; h < STRIP_LENGTH; h++)
    {
       strip.setPixelColor(h, 0);
@@ -459,6 +456,7 @@ void shoot(unsigned int shotSpeed, unsigned int waitAfter)
 void twinkle(byte times, byte numLit)
 {
    int pixels[STRIP_LENGTH] = {0};
+
    for (byte i = 0; i < times; i++)
    {
       for (byte i = 0; i < numLit; i++)
@@ -675,6 +673,7 @@ boolean timedWait(unsigned int waitTime)
 {
    unsigned long previousMillis = millis();
    unsigned long currentMillis = millis();
+
    for(previousMillis; (currentMillis - previousMillis) < waitTime; currentMillis = millis())
    {
       // This may appear to have to effect and the compiler will even throw a warning about it.
@@ -798,6 +797,7 @@ void faderRed(unsigned int wait)
 {
    byte i = 0;
    unsigned int p, q;
+
    for (i=0; i <= 120; i+=5)
    {
       for (p=0; p < strip.numPixels(); p++)
@@ -831,6 +831,7 @@ void faderGreen(unsigned int wait)
 {
    byte i = 0;
    unsigned int p, q;
+
    for (i=0; i <= 120; i+=5)
    {
       for (p=0; p < strip.numPixels(); p++)
@@ -919,8 +920,7 @@ void scanner(byte r, byte g, byte b, unsigned int wait, boolean bounce)
 {
    unsigned int h = 0, i = 0;
    char j = 0;
-   int pos = 0;
-   int dir = 1;
+   int pos = 0, dir = 1;
 
    // Erase the strip initially to be sure that we do not leave
    // LEDs on from previous functions
