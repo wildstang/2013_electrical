@@ -7,7 +7,7 @@ By: Josh Smith and Steve Garward
 #include "Wire.h"
 #include "LiquidTWI.h"
 #include "PinChangeInt.h"
-//#include "ADXL362.h"
+#include "ADXL362.h"
 #include "patterns.h"
 
 // Define the sign addresses
@@ -44,16 +44,17 @@ volatile boolean patternChanged = false;
 volatile int pattern = 0;
 volatile short selectedPattern = 1;
 
-//volatile byte lastSequence;
-//volatile byte sign = 1;
+volatile byte lastSequence;
+volatile byte sign = 1;
 
 // Peripherals
 LiquidTWI lcd(0);
-//ADXL362 accel;
+ADXL362 accel;
 byte r, g, b;
+int angle;
 
 /****************************** Sound Board Code ******************************/
-int PIXELS_PER_SEGMENT = 2; //How many LEDs we want to use for each segment of the "VU meter"
+#define PIXELS_PER_SEGMENT = 2; //How many LEDs we want to use for each segment of the "VU meter"
 
 //This sensitivity is changed based on the pot value. A default value has been added here for reference
 float SENSITIVITY = 2.3; //This sets the sensitivity of the mic (increase for quiet environment (3.0 should be upper bound))
@@ -65,6 +66,10 @@ int totalVolume = 0;
 int relativeLevel = 0;
 int averageVolume = 0;
 /******************************************************************************/
+
+int start = 0;
+int time = 0;
+int count = 0;
 
 //#define WS_DEBUG
 
@@ -110,14 +115,14 @@ void setup()
    digitalWrite(MIC_RESET, HIGH);
    digitalWrite(MIC_RESET, LOW);
 
-   for (int i = 0; i < 7; i++)
+   for (uint8_t i = 0; i < 7; i++)
    {
       baseline[i] = 0;
    }
 
-   for (int j = 0; j < 10; j++)
+   for (uint8_t j = 0; j < 10; j++)
    {
-      for (int i = 0; i < 7; i++)
+      for (uint8_t i = 0; i < 7; i++)
       {
          digitalWrite(MIC_STROBE, LOW);
          delayMicroseconds(30);  // to allow the output to settle
@@ -126,7 +131,7 @@ void setup()
       }
    }
 
-   for (int i = 0; i < 7; i++)
+   for (byte i = 0; i < 7; i++)
    {
       // Average the baseline readings
       baseline[i] = baseline[i] / 10;
@@ -138,8 +143,8 @@ void setup()
    // Print a message to the LCD.
    lcd.print(" ~ WildStang ~ ");
 #endif
-//   accel.begin();
-//   accel.beginMeasure();
+   accel.begin();
+   accel.beginMeasure();
    
    PCintPort::attachInterrupt(RED_BUTTON, upInterrupt, FALLING);
    PCintPort::attachInterrupt(BLUE_BUTTON, downInterrupt, FALLING);
@@ -154,9 +159,9 @@ void setup()
 
 void loop()
 {
-   int start = millis();
-   int time = 0;
-   int count = 0;
+//   int start = millis();
+//   int time = 0;
+//   int count = 0;
 
    //Check if the menu option has been changed and if so, update the menu appropriately
    updateDisplay();
@@ -191,10 +196,10 @@ void loop()
          break;
       case PATTERN_RED_FILL_TILT:
          sendPattern(SIGN_1, PATTERN_RED_FILL_SHIMMER);
-//         while (accelOverThreshold(30))
-//         {
-//            // Do nothing
-//         }
+         while (accelOverThreshold(30))
+         {
+            // Do nothing
+         }
          timedWait(1000);
          sendPattern(SIGN_2, PATTERN_RED_FILL_SHIMMER);
          timedWait(1000);
@@ -202,10 +207,10 @@ void loop()
          break;
       case PATTERN_BLUE_FILL_TILT:
          sendPattern(SIGN_1, PATTERN_BLUE_FILL_SHIMMER);
-//         while (accelOverThreshold(30))
-//         {
-//            // Do nothing
-//         }
+         while (accelOverThreshold(30))
+         {
+            // Do nothing
+         }
          timedWait(1000);
          sendPattern(SIGN_2, PATTERN_BLUE_FILL_SHIMMER);
          timedWait(1000);
@@ -274,6 +279,10 @@ void loop()
          timedWait(200);
          sendPattern(SIGN_1, PATTERN_EQ_EXPLODE);
          sendPattern(SIGN_3, PATTERN_EQ_EXPLODE);
+         break;
+      case PATTERN_ALLIANCE_CHANT:
+         angle = getXYAngle();
+         
          break;
       default:
          sendPattern(SIGN_ALL, PATTERN_RAINBOW);
@@ -372,6 +381,8 @@ String getPatternName(byte pattern)
          return RAINBOW_PARTY_TEXT;
       case PATTERN_EQ_EXPLODE:
          return EQ_EXPLODE_TEXT;
+      case PATTERN_ALLIANCE_CHANT:
+         return ALLIANCE_CHANT_TEXT;
       default:
          return "None            ";
          break;
@@ -491,7 +502,6 @@ void sendPattern(int sign, int pattern)
 
 // Calls the sendPatternMessage function to actually send the pattern command
 // over the I2C lines
-
 void sendPattern(int sign, int pattern, int data[], int start, int length)
 {
    if (sign == SIGN_ALL)
@@ -506,7 +516,7 @@ void sendPattern(int sign, int pattern, int data[], int start, int length)
    }
 }
 //This function takes the address and pattern command data in and sends it out over I2C
-void sendPatternMessage(int address, int pattern, int data[], int start, int length)
+void sendPatternMessage(int address, int pattern, int data[], uint8_t start, uint8_t length)
 {
    Wire.beginTransmission(address);
    Wire.write(pattern);
@@ -550,32 +560,38 @@ boolean timedWait(unsigned int waitTime)
 }
 
 //Takes in a RGB level and sets the LCD backlight to match these values
-void setDisplayColor(int red, int green, int blue)
+void setDisplayColor(uint8_t red, uint8_t green, uint8_t blue)
 {
    analogWrite(LCD_RED, 255 - red);
    analogWrite(LCD_GREEN, 255 - green);
    analogWrite(LCD_BLUE, 255 - blue);
 }
 
-//boolean accelOverThreshold(short angle) 
-//{
-//   float xytilt = 0 ;
-//
-//   int x = accel.readXData();
-//   int y = accel.readYData();
-//   int z = accel.readZData();
-//
-//   xytilt = atan ((float)x/(float)y) * 180 / 3.14159;
-//
-//   if (xytilt > angle || xytilt < (0 - angle))
-//   {
-//      return true;
-//   }
-//   else
-//   {
-//      return false;
-//   }
-//}
+boolean accelOverThreshold(short angle) 
+{
+   int xytilt = getXYAngle();
+   
+   if (xytilt > angle || xytilt < (0 - angle))
+   {
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
+int getXYAngle()
+{
+   float xytilt = 0 ;
+
+   int x = accel.readXData();
+   int y = accel.readYData();
+
+   xytilt = atan ((float)x/(float)y) * 180 / 3.14159;
+   
+   return xytilt;
+}
 
 void Wheel(uint16_t WheelPos)
 {
@@ -603,13 +619,13 @@ void readSoundData()
 {
    //We first need to read the pot value and map it to between 0 and 30 because our realistic max is 3.0.
    //Since map only returns whole numbers, we then divide by 10 to get our true max of 3.0.
-   SENSITIVITY = map(analogRead(MIC_SENSITIVITY), 0, 1023, 0, 30) / 10;
+   SENSITIVITY = map(analogRead(MIC_SENSITIVITY), 0, 1023, 0, 100) / 10; //THIS HAS BEEN CHANGED TO MAX OF 10.0!
    
    digitalWrite(MIC_RESET, HIGH); 
    digitalWrite(MIC_RESET, LOW);
    totalVolume = 0;
 
-   for (int i=0; i < 7; i++)
+   for (uint8_t i=0; i < 7; i++)
    {
      digitalWrite(MIC_STROBE, LOW);
      delayMicroseconds(30);  // to allow the output to settle
@@ -620,8 +636,8 @@ void readSoundData()
        spectrumValue[i] = 0;
      }
      
-     // Spectrum is now 0-30
-     spectrumValue[i] = spectrumValue[i] * SENSITIVITY / 100;
+     // Spectrum is now 0-30 (NOW 0-20)
+     spectrumValue[i] = map((spectrumValue[i] * SENSITIVITY / 100), 0, 100, 0, 20);
 
      totalVolume += spectrumValue[i];
    }

@@ -924,7 +924,7 @@ void showLevel(int p_level)
       strip.setPixelColor(i, 0);  // turn all pixels off
    }
    
-   for (height = 0; height < p_level*2; height++)
+   for (height = 0; height < p_level; height++)
    {
       heightToPixels(height, pixels);
       
@@ -965,9 +965,9 @@ int averageSoundLevel()
    {
       average = 0;
    }
-   else if (average > 10)
+   else if (average > 20)
    {
-      average = 10;
+      average = 20;
    }
    
    return average;

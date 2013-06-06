@@ -7,11 +7,11 @@
 #define PATTERN_RED_FILL_TILT 6
 #define PATTERN_BLUE_FILL_TILT 7
 #define PATTERN_TWINKLE 8
-//#define PATTERN_ALLIANCE_CHANT 8
 #define PATTERN_EQ_METER 9
 #define PATTERN_TWINKLE_COLOR 10
 #define PATTERN_RAINBOW_PARTY 11
 #define PATTERN_EQ_EXPLODE 12
+#define PATTERN_ALLIANCE_CHANT 13
 
 #define BLANK_TEXT "Blank           "
 #define RAINBOW_TEXT "Rainbow         "
@@ -22,10 +22,12 @@
 #define RED_FILL_TILT_TEXT "Red fill tilt   "
 #define BLUE_FILL_TILT_TEXT "Blue fill tilt  "
 #define TWINKLE_TEXT "Twinkle         "
-//#define ALLIANCE_CHANT_TEXT "Alliance chant  "
 #define EQ_METER_TEXT "EQ meter        "
 #define TWINKLE_COLOR_TEXT "Twinkle Color   "
 #define RAINBOW_PARTY_TEXT "Rainbow Party   "
 #define EQ_EXPLODE_TEXT "EQ Explode      "
+#define ALLIANCE_CHANT_TEXT "Alliance chant  "
 
-#define PATTERN_MAX 12
+
+#define PATTERN_MAX 13
+
